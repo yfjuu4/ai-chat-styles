@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name Claude AI CSS Styler
+// @name Chatgpt Styler
 // @namespace http://yourdomain.example
 // @version 1
 // @description Enhanced CSS styling with improved reliability and performance
-// @match https://claude.ai/*
+// @match https://chatgpt.com/*
 // @grant GM_addStyle
 // @grant GM_registerMenuCommand
 // @grant GM_unregisterMenuCommand
