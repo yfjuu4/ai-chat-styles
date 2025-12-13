@@ -1,18 +1,12 @@
 // ==UserScript==
-// @name         Universal AI Chat Styler (Multi-Site)
+// @name         Universal AI Chat Styler - jsDelivr CDN Edition
 // @namespace    http://yourdomain.example
-// @version      2.0
-// @description  Dynamically load custom CSS for ChatGPT and Claude AI
+// @version      4.0
+// @description  Multi-CDN CSS loader for ChatGPT and Claude AI (jsDelivr primary)
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
-// @grant        GM_addStyle
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_log
-// @grant        GM_xmlhttpRequest
-// @run-at       document-end
+// @grant        none
+// @run-at       document-start
 // ==/UserScript==
 
 (function() {
@@ -21,764 +15,572 @@
 // Configuration
 const CONFIG = {
     DEBUG_MODE: true,
-    RETRY_DELAY: 300,
-    MAX_RETRIES: 20,
-    OBSERVER_THROTTLE: 500,
-    CACHE_DURATION: 12 * 60 * 60 * 1000, // 12 hours
-    CACHE_KEY_PREFIX: 'css_cache_v2_',
-    BERRY_INITIAL_DELAY: 2000,
-    CHATGPT_READY_CHECK_INTERVAL: 200,
-    CHATGPT_MAX_READY_CHECKS: 30
+    CACHE_DURATION: 24 * 60 * 60 * 1000, // 24 hours (can be longer with CDN)
+    CACHE_KEY_PREFIX: 'css_cache_v4_',
+    FETCH_TIMEOUT: 8000,
+    MAX_RETRIES: 2
 };
 
-// Site configuration
+// Site configuration with multi-CDN fallback
 const SITES = {
     'chatgpt.com': {
         name: 'ChatGPT',
-        styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/ChatGpt_style.css',
+        // Multiple CDN sources in priority order
+        cdnURLs: [
+            // Primary: jsDelivr (best CORS, caching, CSP compatibility)
+            'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/ChatGpt_style.css',
+            
+            // Fallback 1: Statically.io (GitHub CDN alternative)
+            'https://cdn.statically.io/gh/yfjuu4/ai-chat-styles/main/ChatGpt_style.css',
+            
+            // Fallback 2: GitHack (raw GitHub with proper headers)
+            'https://raw.githack.com/yfjuu4/ai-chat-styles/main/ChatGpt_style.css',
+            
+            // Fallback 3: Combinatronics (another GitHub CDN)
+            'https://combinatronics.io/yfjuu4/ai-chat-styles/main/ChatGpt_style.css',
+            
+            // Last resort: GitHub raw (we know this has issues)
+            'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/ChatGpt_style.css'
+        ],
         styleID: 'chatgpt-enhanced-styles',
-        enabledKey: 'chatgpt_styles_enabled',
-        needsReadyCheck: true,
-        readySelector: 'main, [class*="conversation"], #__next',
-        aggressiveReapply: true
+        enabledKey: 'chatgpt_styles_enabled'
     },
     'claude.ai': {
         name: 'Claude AI',
-        styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Claude_AI_style.css',
+        cdnURLs: [
+            'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Claude_AI_style.css',
+            'https://cdn.statically.io/gh/yfjuu4/ai-chat-styles/main/Claude_AI_style.css',
+            'https://raw.githack.com/yfjuu4/ai-chat-styles/main/Claude_AI_style.css',
+            'https://combinatronics.io/yfjuu4/ai-chat-styles/main/Claude_AI_style.css',
+            'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Claude_AI_style.css'
+        ],
         styleID: 'claude-enhanced-styles',
-        enabledKey: 'claude_styles_enabled',
-        needsReadyCheck: false,
-        readySelector: 'body',
-        aggressiveReapply: false
+        enabledKey: 'claude_styles_enabled'
     }
 };
 
-// Detect current site
-const currentDomain = window.location.hostname;
-const currentSite = SITES[currentDomain] || null;
+const currentSite = SITES[window.location.hostname];
+if (!currentSite) return;
 
-if (!currentSite) {
-    console.log('AI Chat Styler: No configuration found for this domain');
-    return;
-}
-
-// State management
+// State
 const state = {
-    site: currentSite,
-    styleElement: null,
-    observer: null,
-    retryCount: 0,
-    menuCommandId: null,
-    currentURL: location.href,
-    isLoading: false,
-    hasGrants: false,
-    isBerryBrowser: false,
-    isReady: false,
     cssContent: null,
-    appliedMethod: null,
-    lastApplyTime: 0
+    isEnabled: true,
+    isFetching: false,
+    successfulCDN: null, // Track which CDN worked
+    fetchAttempts: []
 };
-
-// Enhanced browser detection
-(function detectCapabilities() {
-    state.hasGrants = typeof GM_xmlhttpRequest !== 'undefined';
-
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMobile = /android|mobile/i.test(userAgent);
-    const isChromiumBased = /chrome|chromium/i.test(userAgent);
-
-    state.isBerryBrowser = !state.hasGrants && isMobile && isChromiumBased;
-
-    if (state.isBerryBrowser) {
-        console.log('🍓 Berry Browser detected - using optimized fallback methods');
-    }
-})();
 
 // Utility functions
 const utils = {
     log(message, level = 'info') {
         if (!CONFIG.DEBUG_MODE && level === 'debug') return;
-    
         const emoji = {
             'info': 'ℹ️',
             'success': '✅',
             'error': '❌',
             'debug': '🔍',
-            'warning': '⚠️'
+            'cdn': '🌐'
         }[level] || 'ℹ️';
-    
-        const prefix = `${emoji} [${currentSite.name}]`;
-        console.log(`${prefix} ${message}`);
+        console.log(`${emoji} [${currentSite.name}] ${message}`);
     },
 
-    throttle(func, delay) {
-        let timeoutId;
-        let lastExecTime = 0;
-
-        return function(...args) {
-            const context = this;
-            const currentTime = Date.now();
-
-            const execute = function() {
-                lastExecTime = currentTime;
-                func.apply(context, args);
-            };
-
-            clearTimeout(timeoutId);
-
-            if (currentTime - lastExecTime > delay) {
-                execute();
-            } else {
-                timeoutId = setTimeout(execute, delay - (currentTime - lastExecTime));
-            }
-        };
-    },
-
-    safeCall(fn, fallback = null) {
+    getFromCache() {
         try {
-            return fn();
+            const cacheKey = CONFIG.CACHE_KEY_PREFIX + currentSite.name;
+            const cached = localStorage.getItem(cacheKey);
+            if (!cached) return null;
+
+            const { css, timestamp, cdnURL } = JSON.parse(cached);
+            
+            if (Date.now() - timestamp > CONFIG.CACHE_DURATION) {
+                this.log('Cache expired', 'debug');
+                return null;
+            }
+
+            this.log(`Using cached CSS from ${cdnURL} (${css.length} chars)`, 'success');
+            state.successfulCDN = cdnURL; // Remember successful CDN
+            return css;
         } catch (e) {
-            this.log(`Error: ${e.message}`, 'error');
-            return fallback;
-        }
-    },
-
-    getValue(key, defaultValue) {
-        return this.safeCall(() => {
-            if (typeof GM_getValue !== 'undefined') {
-                return GM_getValue(key, defaultValue);
-            }
-            try {
-                const item = localStorage.getItem(key);
-                return item !== null ? JSON.parse(item) : defaultValue;
-            } catch (e) {
-                return defaultValue;
-            }
-        }, defaultValue);
-    },
-
-    setValue(key, value) {
-        return this.safeCall(() => {
-            if (typeof GM_setValue !== 'undefined') {
-                GM_setValue(key, value);
-                return true;
-            }
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }, false);
-    },
-
-    getCurrentSiteEnabled() {
-        return this.getValue(state.site.enabledKey, true);
-    },
-
-    setCurrentSiteEnabled(enabled) {
-        return this.setValue(state.site.enabledKey, enabled);
-    },
-
-    getCachedCSS() {
-        const cacheKey = CONFIG.CACHE_KEY_PREFIX + state.site.name;
-        const cacheData = this.getValue(cacheKey, null);
-    
-        if (!cacheData) return null;
-    
-        const { css, timestamp, url } = cacheData;
-        const now = Date.now();
-    
-        if (url !== state.site.styleURL) {
-            this.log('CSS URL changed, invalidating cache', 'warning');
+            this.log(`Cache read error: ${e.message}`, 'error');
             return null;
         }
-    
-        if (now - timestamp > CONFIG.CACHE_DURATION) {
-            this.log('Cache expired', 'debug');
-            return null;
+    },
+
+    saveToCache(css, cdnURL) {
+        try {
+            const cacheKey = CONFIG.CACHE_KEY_PREFIX + currentSite.name;
+            const cacheData = {
+                css: css,
+                timestamp: Date.now(),
+                cdnURL: cdnURL
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            this.log(`CSS cached from ${this.getCDNName(cdnURL)}`, 'debug');
+        } catch (e) {
+            this.log(`Cache write error: ${e.message}`, 'error');
         }
-    
-        this.log('Using cached CSS', 'success');
-        return css;
     },
 
-    setCachedCSS(css) {
-        const cacheKey = CONFIG.CACHE_KEY_PREFIX + state.site.name;
-        const cacheData = {
-            css: css,
-            timestamp: Date.now(),
-            url: state.site.styleURL
-        };
-        return this.setValue(cacheKey, cacheData);
+    getCDNName(url) {
+        if (url.includes('jsdelivr')) return 'jsDelivr';
+        if (url.includes('statically')) return 'Statically';
+        if (url.includes('githack')) return 'GitHack';
+        if (url.includes('combinatronics')) return 'Combinatronics';
+        if (url.includes('githubusercontent')) return 'GitHub Raw';
+        return 'Unknown CDN';
     },
 
-    async waitForElement(selector, timeout = 10000) {
-        const startTime = Date.now();
-    
-        while (Date.now() - startTime < timeout) {
-            const element = document.querySelector(selector);
-            if (element) {
-                return element;
-            }
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-    
-        return null;
-    },
-
-    async waitForPageReady() {
-        if (!state.site.needsReadyCheck) {
+    getEnabled() {
+        try {
+            const value = localStorage.getItem(currentSite.enabledKey);
+            return value === null ? true : JSON.parse(value);
+        } catch (e) {
             return true;
         }
+    },
 
-        this.log('Waiting for page to be ready...', 'debug');
-    
-        const element = await this.waitForElement(state.site.readySelector, 10000);
-    
-        if (element) {
-            this.log('Page is ready', 'success');
-        
-            if (state.isBerryBrowser && currentDomain === 'chatgpt.com') {
-                this.log('Applying ChatGPT Berry Browser delay...', 'debug');
-                await new Promise(resolve => setTimeout(resolve, CONFIG.BERRY_INITIAL_DELAY));
-            }
-        
-            return true;
+    setEnabled(enabled) {
+        try {
+            localStorage.setItem(currentSite.enabledKey, JSON.stringify(enabled));
+            state.isEnabled = enabled;
+        } catch (e) {
+            this.log(`Failed to save enabled state: ${e.message}`, 'error');
         }
-    
-        this.log('Page ready check timed out, continuing anyway', 'warning');
-        return false;
     }
 };
 
-// Enhanced CSS loader
-const cssLoader = {
-    async fetchExternalCSS() {
-        const cachedCSS = utils.getCachedCSS();
-        if (cachedCSS) {
-            state.cssContent = cachedCSS;
-            return cachedCSS;
-        }
-
-        utils.log(`Fetching CSS from: ${state.site.styleURL}`, 'info');
-    
-        if (state.hasGrants && typeof GM_xmlhttpRequest !== 'undefined') {
-            try {
-                const css = await this.fetchViaGM();
-                state.cssContent = css;
-                return css;
-            } catch (error) {
-                utils.log(`GM fetch failed: ${error.message}`, 'error');
+// CSS Fetcher with intelligent CDN selection
+const cssFetcher = {
+    // Reorder CDNs to try successful one first
+    getOptimizedCDNOrder() {
+        const urls = [...currentSite.cdnURLs];
+        
+        // If we know which CDN worked before, try it first
+        if (state.successfulCDN) {
+            const successIndex = urls.indexOf(state.successfulCDN);
+            if (successIndex > 0) {
+                urls.splice(successIndex, 1);
+                urls.unshift(state.successfulCDN);
+                utils.log(`Prioritizing ${utils.getCDNName(state.successfulCDN)} (previously successful)`, 'cdn');
             }
         }
-    
+        
+        return urls;
+    },
+
+    async fetchFromURL(url, method = 'fetch') {
+        const startTime = Date.now();
+        const cdnName = utils.getCDNName(url);
+        
         try {
-            const css = await this.fetchDirect();
-            state.cssContent = css;
-            return css;
-        } catch (error) {
-            utils.log(`Direct fetch failed: ${error.message}`, 'error');
-        }
-    
-        if (CONFIG.BERRY_FALLBACK || state.isBerryBrowser) {
-            try {
-                const css = await this.fetchViaCORSProxy();
-                state.cssContent = css;
-                return css;
-            } catch (error) {
-                utils.log(`Proxy fetch failed: ${error.message}`, 'error');
-            }
-        }
-    
-        throw new Error('All fetch methods failed');
-    },
-
-    fetchViaGM() {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: state.site.styleURL,
-                timeout: 15000,
-                headers: {
-                    'Accept': 'text/css,*/*',
-                    'Cache-Control': 'no-cache'
-                },
-                onload: (response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        const css = response.responseText;
-                        if (css && css.trim().length > 0) {
-                            utils.setCachedCSS(css);
-                            utils.log(`Fetched ${css.length} chars via GM`, 'success');
-                            resolve(css);
-                        } else {
-                            reject(new Error('Empty response'));
-                        }
-                    } else {
-                        reject(new Error(`HTTP ${response.status}`));
-                    }
-                },
-                onerror: () => reject(new Error('Network error')),
-                ontimeout: () => reject(new Error('Request timeout'))
-            });
-        });
-    },
-
-    async fetchDirect() {
-        utils.log('Trying direct fetch...', 'debug');
-    
-        const response = await fetch(state.site.styleURL, {
-            method: 'GET',
-            headers: {
-                'Accept': 'text/css,*/*'
-            },
-            mode: 'cors',
-            cache: 'no-cache',
-            credentials: 'omit'
-        });
-    
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-    
-        const css = await response.text();
-    
-        if (!css || css.trim().length === 0) {
-            throw new Error('Empty CSS response');
-        }
-    
-        utils.setCachedCSS(css);
-        utils.log(`Fetched ${css.length} chars directly`, 'success');
-        return css;
-    },
-
-    async fetchViaCORSProxy() {
-        const proxies = [
-            `https://corsproxy.io/?${encodeURIComponent(state.site.styleURL)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(state.site.styleURL)}`,
-            state.site.styleURL
-        ];
-
-        for (let i = 0; i < proxies.length; i++) {
-            const proxyUrl = proxies[i];
-            try {
-                utils.log(`Trying proxy ${i + 1}/${proxies.length}`, 'debug');
+            utils.log(`Trying ${cdnName}: ${method}`, 'cdn');
             
+            let css;
+            
+            if (method === 'fetch') {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-            
-                const response = await fetch(proxyUrl, {
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
+                
+                const response = await fetch(url, {
                     method: 'GET',
-                    headers: { 'Accept': 'text/css,*/*' },
                     signal: controller.signal,
                     mode: 'cors',
-                    cache: 'no-cache'
+                    cache: 'default', // Use browser cache for CDN
+                    credentials: 'omit',
+                    headers: {
+                        'Accept': 'text/css,*/*'
+                    }
                 });
-            
+                
                 clearTimeout(timeoutId);
-            
+                
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
+                
+                css = await response.text();
+                
+            } else if (method === 'xhr') {
+                css = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = CONFIG.FETCH_TIMEOUT;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(xhr.responseText);
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}`));
+                        }
+                    };
+                    
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.ontimeout = () => reject(new Error('Timeout'));
+                    
+                    xhr.open('GET', url, true);
+                    xhr.send();
+                });
+            }
             
-                const css = await response.text();
+            const duration = Date.now() - startTime;
             
-                if (css && css.trim().length > 0) {
-                    utils.setCachedCSS(css);
-                    utils.log(`Fetched ${css.length} chars via proxy`, 'success');
-                    return css;
+            if (!css || css.trim().length === 0) {
+                throw new Error('Empty response');
+            }
+            
+            // Validate CSS content (basic check)
+            if (css.length < 10 || !css.includes('{')) {
+                throw new Error('Invalid CSS content');
+            }
+            
+            state.fetchAttempts.push({
+                cdn: cdnName,
+                url: url,
+                method: method,
+                success: true,
+                duration: duration,
+                size: css.length
+            });
+            
+            utils.log(`✅ ${cdnName} SUCCESS (${duration}ms, ${css.length} chars)`, 'success');
+            
+            state.successfulCDN = url;
+            return { css, url };
+            
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            
+            state.fetchAttempts.push({
+                cdn: cdnName,
+                url: url,
+                method: method,
+                success: false,
+                error: error.message,
+                duration: duration
+            });
+            
+            utils.log(`❌ ${cdnName} failed: ${error.message} (${duration}ms)`, 'debug');
+            throw error;
+        }
+    },
+
+    async fetchCSS() {
+        if (state.isFetching) {
+            utils.log('Fetch already in progress', 'debug');
+            return null;
+        }
+
+        state.isFetching = true;
+        state.fetchAttempts = [];
+
+        // Check cache first
+        const cached = utils.getFromCache();
+        if (cached) {
+            state.cssContent = cached;
+            state.isFetching = false;
+            return cached;
+        }
+
+        utils.log('🌐 Starting multi-CDN fetch strategy', 'info');
+
+        const cdnURLs = this.getOptimizedCDNOrder();
+        const methods = ['fetch', 'xhr'];
+
+        // Try each CDN with each method
+        for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
+            if (retry > 0) {
+                utils.log(`Retry attempt ${retry + 1}/${CONFIG.MAX_RETRIES}`, 'info');
+            }
+
+            for (const url of cdnURLs) {
+                for (const method of methods) {
+                    try {
+                        const { css, url: successURL } = await this.fetchFromURL(url, method);
+                        
+                        if (css) {
+                            utils.saveToCache(css, successURL);
+                            state.cssContent = css;
+                            state.isFetching = false;
+                            
+                            utils.log(`📊 Fetch Statistics:`, 'info');
+                            utils.log(`  Attempts: ${state.fetchAttempts.length}`, 'info');
+                            utils.log(`  Success: ${utils.getCDNName(successURL)} via ${method}`, 'info');
+                            
+                            return css;
+                        }
+                    } catch (error) {
+                        // Continue to next CDN/method
+                        continue;
+                    }
                 }
-            } catch (error) {
-                utils.log(`Proxy ${i + 1} failed: ${error.message}`, 'debug');
-                if (i === proxies.length - 1) {
-                    throw error;
-                }
-                continue;
+            }
+            
+            // Wait before retry
+            if (retry < CONFIG.MAX_RETRIES - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
             }
         }
-    
-        throw new Error('All proxies failed');
+
+        state.isFetching = false;
+        utils.log('❌ All CDN sources failed', 'error');
+        utils.log(`📊 Failed attempts: ${state.fetchAttempts.length}`, 'error');
+        
+        // Log detailed failure report
+        state.fetchAttempts.forEach(attempt => {
+            utils.log(`  ${attempt.cdn} (${attempt.method}): ${attempt.success ? 'OK' : attempt.error}`, 'debug');
+        });
+        
+        return null;
     }
 };
 
-// Style manager
-const styleManager = {
-    async apply() {
-        if (!utils.getCurrentSiteEnabled() || state.isLoading) {
+// Style injector
+const styleInjector = {
+    inject(css) {
+        if (!css || css.trim().length === 0) {
+            utils.log('No CSS to inject', 'error');
             return false;
         }
-
-        const now = Date.now();
-        if (now - state.lastApplyTime < 500) {
-            utils.log('Throttling apply attempt', 'debug');
-            return false;
-        }
-        state.lastApplyTime = now;
-
-        this.remove();
-        state.isLoading = true;
 
         try {
-            await utils.waitForPageReady();
-        
-            if (!state.cssContent) {
-                utils.log('Fetching CSS...', 'info');
-                await cssLoader.fetchExternalCSS();
-            }
+            // Remove existing style
+            this.remove();
 
-            if (!state.cssContent || state.cssContent.trim().length === 0) {
-                throw new Error('No CSS content available');
-            }
+            // Create inline style element (CSP-compliant)
+            const style = document.createElement('style');
+            style.id = currentSite.styleID;
+            style.type = 'text/css';
+            style.textContent = css;
+            style.setAttribute('data-source', 'berry-styler-cdn');
+            style.setAttribute('data-cdn', state.successfulCDN || 'cached');
 
-            const methods = [
-                { name: 'blob-link', fn: () => this.injectViaBlob() },
-                { name: 'style-element', fn: () => this.injectViaStyle() },
-                { name: 'external-link', fn: () => this.injectViaExternalLink() }
-            ];
+            // Inject into head
+            const target = document.head || document.documentElement;
+            target.appendChild(style);
 
-            for (const method of methods) {
-                try {
-                    utils.log(`Trying ${method.name}...`, 'debug');
-                    if (await method.fn()) {
-                        state.appliedMethod = method.name;
-                        utils.log(`✅ Styles applied via ${method.name}`, 'success');
-                        state.isLoading = false;
-                        return true;
-                    }
-                } catch (error) {
-                    utils.log(`${method.name} failed: ${error.message}`, 'debug');
-                }
-            }
-        
-            throw new Error('All injection methods failed');
-        
-        } catch (error) {
-            utils.log(`Failed to apply styles: ${error.message}`, 'error');
-            state.isLoading = false;
-            return false;
-        }
-    },
-
-    async injectViaBlob() {
-        if (!document.head) return false;
-    
-        const blob = new Blob([state.cssContent], { type: 'text/css' });
-        const blobUrl = URL.createObjectURL(blob);
-    
-        const link = document.createElement('link');
-        link.id = state.site.styleID;
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = blobUrl;
-        link.setAttribute('data-method', 'blob');
-    
-        return new Promise((resolve) => {
-            link.onload = () => {
-                state.styleElement = link;
-                resolve(true);
-            };
-        
-            link.onerror = () => {
-                link.remove();
-                URL.revokeObjectURL(blobUrl);
-                resolve(false);
-            };
-        
-            document.head.appendChild(link);
-        
+            utils.log(`CSS injected (${css.length} chars)`, 'success');
+            
+            // Verify injection
             setTimeout(() => {
-                if (link.sheet) {
-                    state.styleElement = link;
-                    resolve(true);
+                const verified = document.getElementById(currentSite.styleID);
+                if (verified && verified.sheet) {
+                    const ruleCount = verified.sheet.cssRules?.length || 0;
+                    utils.log(`✓ Injection verified: ${ruleCount} CSS rules active`, 'success');
                 } else {
-                    resolve(false);
+                    utils.log('⚠ Injection verification inconclusive', 'debug');
                 }
-            }, 1000);
-        });
-    },
+            }, 500);
 
-    injectViaStyle() {
-        if (!document.head) return false;
-    
-        const style = document.createElement('style');
-        style.id = state.site.styleID;
-        style.type = 'text/css';
-        style.textContent = state.cssContent;
-        style.setAttribute('data-method', 'inline');
-    
-        try {
-            document.head.appendChild(style);
-            state.styleElement = style;
             return true;
         } catch (error) {
-            style.remove();
+            utils.log(`Injection failed: ${error.message}`, 'error');
             return false;
         }
-    },
-
-    async injectViaExternalLink() {
-        if (!document.head) return false;
-    
-        const link = document.createElement('link');
-        link.id = state.site.styleID;
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = state.site.styleURL;
-        link.setAttribute('data-method', 'external');
-        link.setAttribute('crossorigin', 'anonymous');
-    
-        return new Promise((resolve) => {
-            link.onload = () => {
-                state.styleElement = link;
-                resolve(true);
-            };
-        
-            link.onerror = () => {
-                link.remove();
-                resolve(false);
-            };
-        
-            document.head.appendChild(link);
-        
-            setTimeout(() => resolve(false), 3000);
-        });
     },
 
     remove() {
-        const existingStyle = document.getElementById(state.site.styleID);
-        if (existingStyle) {
-            if (existingStyle.tagName === 'LINK' && existingStyle.href.startsWith('blob:')) {
-                URL.revokeObjectURL(existingStyle.href);
-            }
-            existingStyle.remove();
-        }
-    
-        const orphans = document.querySelectorAll(`[data-method]`);
-        orphans.forEach(el => {
-            if (el.id === state.site.styleID || el.getAttribute('data-site') === currentDomain) {
-                el.remove();
-            }
-        });
-    
-        state.styleElement = null;
-        utils.log('Styles removed', 'debug');
-    },
-
-    isApplied() {
-        return !!document.getElementById(state.site.styleID);
-    },
-
-    async forceReapply() {
-        if (utils.getCurrentSiteEnabled() && !this.isApplied()) {
-            utils.log('Force reapplying styles', 'debug');
-            await this.apply();
+        const element = document.getElementById(currentSite.styleID);
+        if (element) {
+            element.remove();
+            utils.log('CSS removed', 'debug');
         }
     }
 };
 
-// Observer manager
-const observerManager = {
-    setup() {
-        this.cleanup();
-        if (!utils.getCurrentSiteEnabled()) return;
-
-        if (state.site.aggressiveReapply || state.isBerryBrowser) {
-            this.createAggressiveObserver();
-        } else {
-            this.createStandardObserver();
+// Main application
+const app = {
+    async init() {
+        utils.log(`🚀 Initializing ${currentSite.name} Styler v4.0 (jsDelivr CDN)`, 'info');
+        
+        state.isEnabled = utils.getEnabled();
+        
+        if (!state.isEnabled) {
+            utils.log('Styles disabled by user', 'info');
+            return;
         }
-    
-        utils.log('Observer started', 'debug');
+
+        // Start fetching immediately
+        await this.loadAndApplyCSS();
+        
+        // Setup UI controls
+        this.setupControls();
+        
+        // Watch for navigation
+        this.watchNavigation();
     },
 
-    createStandardObserver() {
-        const throttledReapply = utils.throttle(() => {
-            styleManager.forceReapply();
-        }, CONFIG.OBSERVER_THROTTLE);
-
-        state.observer = new MutationObserver(mutations => {
-            let shouldReapply = false;
-
-            for (const mutation of mutations) {
-                if (mutation.removedNodes.length > 0) {
-                    for (const node of mutation.removedNodes) {
-                        if (node.id === state.site.styleID) {
-                            shouldReapply = true;
-                            break;
-                        }
-                    }
+    async loadAndApplyCSS() {
+        try {
+            const css = await cssFetcher.fetchCSS();
+            
+            if (css) {
+                state.cssContent = css;
+                
+                // Wait for DOM if needed
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        styleInjector.inject(css);
+                    });
+                } else {
+                    styleInjector.inject(css);
                 }
+            } else {
+                utils.log('Failed to fetch CSS from any CDN', 'error');
+                this.showNotification('⚠️ Failed to load styles');
             }
-
-            if (shouldReapply) {
-                throttledReapply();
-            }
-        });
-
-        state.observer.observe(document.head, {
-            childList: true,
-            subtree: false
-        });
+        } catch (error) {
+            utils.log(`Init error: ${error.message}`, 'error');
+        }
     },
 
-    createAggressiveObserver() {
-        let checkCount = 0;
-        const maxChecks = 100;
-    
-        const checkAndReapply = async () => {
-            if (checkCount++ > maxChecks) {
-                clearInterval(intervalId);
-                utils.log('Aggressive observer stopped after max checks', 'debug');
+    setupControls() {
+        const addControls = () => {
+            if (!document.body) {
+                setTimeout(addControls, 100);
                 return;
             }
-        
-            if (!styleManager.isApplied() && utils.getCurrentSiteEnabled()) {
-                utils.log('Style missing, reapplying...', 'debug');
-                await styleManager.forceReapply();
-            }
-        };
-    
-        const intervalId = setInterval(checkAndReapply, 2000);
-    
-        state.observer = {
-            disconnect: () => clearInterval(intervalId)
-        };
-    },
 
-    cleanup() {
-        if (state.observer) {
-            if (state.observer.disconnect) {
-                state.observer.disconnect();
-            }
-            state.observer = null;
-        }
-        utils.log('Observer cleaned up', 'debug');
-    }
-};
+            // Main toggle button
+            const toggleBtn = document.createElement('button');
+            toggleBtn.id = 'berry-styler-toggle';
+            toggleBtn.innerHTML = state.isEnabled ? '🎨' : '🚫';
+            toggleBtn.title = `${currentSite.name} Styles: ${state.isEnabled ? 'ON' : 'OFF'}`;
+            toggleBtn.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                z-index: 2147483647;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s;
+                opacity: ${state.isEnabled ? '1' : '0.6'};
+            `;
 
-// Menu manager (simplified - no reload/clear cache commands)
-const menuManager = {
-    setup() {
-        if (typeof GM_registerMenuCommand !== 'undefined') {
-            this.createMenuCommands();
-        } else {
-            this.createFloatingButton();
-        }
-    },
-
-    createMenuCommands() {
-        this.updateToggleCommand();
-    },
-
-    createFloatingButton() {
-        const button = document.createElement('div');
-        button.id = 'ai-styler-btn';
-        button.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 999999;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        `;
-    
-        this.updateButtonState(button);
-    
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            this.toggleCurrentSiteStyles();
-        });
-    
-        const addButton = () => {
-            if (document.body) {
-                document.body.appendChild(button);
-            } else {
-                setTimeout(addButton, 100);
-            }
-        };
-        addButton();
-    },
-
-    updateButtonState(button) {
-        if (!button) button = document.getElementById('ai-styler-btn');
-        if (!button) return;
-    
-        const isEnabled = utils.getCurrentSiteEnabled();
-        button.innerHTML = isEnabled ? '🎨' : '🚫';
-        button.style.opacity = isEnabled ? '1' : '0.6';
-        button.title = `${state.site.name}: ${isEnabled ? 'ON' : 'OFF'}`;
-    },
-
-    updateToggleCommand() {
-        utils.safeCall(() => {
-            if (state.menuCommandId && typeof GM_unregisterMenuCommand !== 'undefined') {
-                GM_unregisterMenuCommand(state.menuCommandId);
-            }
-
-            const isEnabled = utils.getCurrentSiteEnabled();
-            const text = `${isEnabled ? '✅' : '❌'} ${state.site.name} Styles`;
-        
-            state.menuCommandId = GM_registerMenuCommand(text, () => {
-                this.toggleCurrentSiteStyles();
+            toggleBtn.onclick = () => this.toggle();
+            
+            // Long press for stats
+            let longPressTimer;
+            toggleBtn.addEventListener('touchstart', () => {
+                longPressTimer = setTimeout(() => this.showStats(), 1500);
             });
-        });
+            toggleBtn.addEventListener('touchend', () => {
+                clearTimeout(longPressTimer);
+            });
+            
+            document.body.appendChild(toggleBtn);
+
+            // Refresh button
+            const refreshBtn = document.createElement('button');
+            refreshBtn.innerHTML = '🔄';
+            refreshBtn.title = 'Reload CSS';
+            refreshBtn.style.cssText = toggleBtn.style.cssText + 'bottom: 80px; font-size: 20px;';
+            refreshBtn.onclick = () => this.refresh();
+            document.body.appendChild(refreshBtn);
+        };
+
+        addControls();
     },
 
-    toggleCurrentSiteStyles() {
-        const newEnabled = !utils.getCurrentSiteEnabled();
-        utils.setCurrentSiteEnabled(newEnabled);
+    toggle() {
+        state.isEnabled = !state.isEnabled;
+        utils.setEnabled(state.isEnabled);
 
-        if (newEnabled) {
-            styleManager.apply();
-            observerManager.setup();
+        if (state.isEnabled) {
+            if (state.cssContent) {
+                styleInjector.inject(state.cssContent);
+            } else {
+                this.loadAndApplyCSS();
+            }
         } else {
-            styleManager.remove();
-            observerManager.cleanup();
+            styleInjector.remove();
         }
 
-        this.updateButtonState();
-        this.updateToggleCommand();
-        this.showToast(`${state.site.name}: ${newEnabled ? 'ON' : 'OFF'}`);
+        this.updateButton();
+        this.showNotification(`${state.isEnabled ? '✅' : '❌'} Styles ${state.isEnabled ? 'ON' : 'OFF'}`);
     },
 
-    showToast(message) {
+    async refresh() {
+        utils.log('Manual refresh triggered', 'info');
+        
+        // Clear cache
+        try {
+            const cacheKey = CONFIG.CACHE_KEY_PREFIX + currentSite.name;
+            localStorage.removeItem(cacheKey);
+            state.successfulCDN = null;
+            utils.log('Cache cleared', 'debug');
+        } catch (e) {
+            utils.log(`Cache clear error: ${e.message}`, 'error');
+        }
+
+        state.cssContent = null;
+        styleInjector.remove();
+
+        if (state.isEnabled) {
+            this.showNotification('🔄 Reloading CSS...');
+            await this.loadAndApplyCSS();
+        }
+    },
+
+    showStats() {
+        const cdnName = state.successfulCDN ? utils.getCDNName(state.successfulCDN) : 'Unknown';
+        const cssSize = state.cssContent ? `${state.cssContent.length} chars` : 'Not loaded';
+        
+        console.group('📊 Styler Statistics');
+        console.log('Status:', state.isEnabled ? 'Enabled ✅' : 'Disabled ❌');
+        console.log('CSS Size:', cssSize);
+        console.log('CDN Used:', cdnName);
+        console.log('Fetch Attempts:', state.fetchAttempts.length);
+        if (state.fetchAttempts.length > 0) {
+            console.table(state.fetchAttempts);
+        }
+        console.groupEnd();
+        
+        this.showNotification(`📊 CDN: ${cdnName}`);
+    },
+
+    updateButton() {
+        const btn = document.getElementById('berry-styler-toggle');
+        if (btn) {
+            btn.innerHTML = state.isEnabled ? '🎨' : '🚫';
+            btn.style.opacity = state.isEnabled ? '1' : '0.6';
+            btn.title = `${currentSite.name} Styles: ${state.isEnabled ? 'ON' : 'OFF'}`;
+        }
+    },
+
+    showNotification(message) {
         const toast = document.createElement('div');
         toast.style.cssText = `
             position: fixed;
-            bottom: 80px;
+            bottom: 140px;
             right: 20px;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.9);
             color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 999998;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: slideIn 0.3s ease;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            z-index: 2147483646;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: opacity 0.3s;
+            max-width: 200px;
         `;
-    
         toast.textContent = message;
-    
+
         const addToast = () => {
             if (document.body) {
                 document.body.appendChild(toast);
                 setTimeout(() => {
                     toast.style.opacity = '0';
-                    toast.style.transform = 'translateY(10px)';
                     setTimeout(() => toast.remove(), 300);
                 }, 2000);
             } else {
@@ -786,114 +588,32 @@ const menuManager = {
             }
         };
         addToast();
-    }
-};
-
-// Navigation manager
-const navigationManager = {
-    init() {
-        if (!state.isBerryBrowser) {
-            this.overrideHistoryMethods();
-        }
-    
-        window.addEventListener('popstate', this.handleURLChange);
-        window.addEventListener('hashchange', this.handleURLChange);
     },
 
-    overrideHistoryMethods() {
-        const originalPushState = history.pushState;
-        const originalReplaceState = history.replaceState;
-
-        history.pushState = function(...args) {
-            originalPushState.apply(this, args);
-            navigationManager.handleURLChange();
-        };
-
-        history.replaceState = function(...args) {
-            originalReplaceState.apply(this, args);
-            navigationManager.handleURLChange();
-        };
-    },
-
-    handleURLChange: utils.throttle(() => {
-        if (location.href !== state.currentURL) {
-            state.currentURL = location.href;
-            utils.log(`URL changed: ${state.currentURL}`, 'debug');
+    watchNavigation() {
+        let lastURL = location.href;
         
-            if (utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 300);
-            }
-        }
-    }, 500)
-};
-
-// Main app
-const app = {
-    async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v2.1`, 'info');
-        utils.log(`Mode: ${state.isBerryBrowser ? 'Berry Browser' : 'Standard'}`, 'info');
-    
-        const initialDelay = state.isBerryBrowser ? 1500 : 500;
-    
-        setTimeout(async () => {
-            await this.applyWithRetry();
-            observerManager.setup();
-            menuManager.setup();
-            navigationManager.init();
-            this.setupEventListeners();
-        
-            const status = utils.getCurrentSiteEnabled() ? 'ENABLED ✅' : 'DISABLED ❌';
-            utils.log(`Initialization complete. Status: ${status}`, 'success');
-        }, initialDelay);
-    },
-
-    async applyWithRetry() {
-        if (!utils.getCurrentSiteEnabled()) return;
-
-        for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
-            try {
-                utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
-            
-                if (await styleManager.apply()) {
-                    utils.log('Styles successfully applied!', 'success');
-                    return;
+        const checkURL = () => {
+            if (location.href !== lastURL) {
+                lastURL = location.href;
+                utils.log('Navigation detected', 'debug');
+                
+                if (state.isEnabled && state.cssContent) {
+                    setTimeout(() => {
+                        if (!document.getElementById(currentSite.styleID)) {
+                            utils.log('Re-injecting CSS after navigation', 'debug');
+                            styleInjector.inject(state.cssContent);
+                        }
+                    }, 500);
                 }
-            } catch (error) {
-                utils.log(`Attempt ${attempt} error: ${error.message}`, 'error');
             }
+        };
 
-            if (attempt < CONFIG.MAX_RETRIES) {
-                await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
-            }
-        }
-    
-        utils.log('Max retries reached - styles may not be applied', 'warning');
-    },
-
-    setupEventListeners() {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 200);
-            }
-        });
-
-        window.addEventListener('focus', () => {
-            if (utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 200);
-            }
-        });
-
-        window.addEventListener('beforeunload', () => {
-            observerManager.cleanup();
-        });
+        setInterval(checkURL, 1000);
     }
 };
 
-// Start the application
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => app.init());
-} else {
-    app.init();
-}
+// Initialize
+app.init();
 
 })();
