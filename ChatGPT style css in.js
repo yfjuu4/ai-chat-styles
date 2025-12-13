@@ -25,7 +25,6 @@ OBSERVER_THROTTLE: 250
 const USER_CSS = String.raw`
 /* Your CSS styles here */
 /*========================================================*/
-/*========================================================*/
 .md\:px-Mathjax,
 .pt-5,
 .font-bold,
