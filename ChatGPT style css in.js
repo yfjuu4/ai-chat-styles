@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Chatgpt Styler
+// @name ChatGPT Styler
 // @namespace http://yourdomain.example
 // @version 1
 // @description Enhanced CSS styling with improved reliability and performance
@@ -12,10 +12,8 @@
 // @grant GM_log
 // @run-at document-end
 // ==/UserScript==
-
 (function() {
 'use strict';
-
 // Configuration
 const CONFIG = {
 STYLE_ID: 'chatgpt-enhanced-styles',
@@ -24,10 +22,9 @@ RETRY_DELAY: 100,
 MAX_RETRIES: 50,
 OBSERVER_THROTTLE: 250
 };
-
 const USER_CSS = String.raw`
-/*========================================================*/
 /* Your CSS styles here */
+/*========================================================*/
 .md\:px-Mathjax,
 .pt-5,
 .font-bold,
@@ -67,7 +64,7 @@ button[data-testid="share-chat-button"],
     border: 1px #e10000 solid;
 }
 .flex > div > .text-sm {
-    font-size: 18px;
+    font-size: 20px;
 }
 .mb-2 {
     margin-bottom: 0;
@@ -81,7 +78,7 @@ button[data-testid="share-chat-button"],
 /*-----------------------------------------*/
 .max-w-none > .text-token-text-secondary > div {
     Color: #00c811;
-    font-size: 18px;
+    font-size: 20px;
 }
 .gap-3 {
     gap: 0;
@@ -104,7 +101,7 @@ body {
 .w-full {
     Color: #a49502;
     text-align: Center;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
 }
 .py-Mathjax {
@@ -251,7 +248,7 @@ tr .text-right {
     Color: #000;
 }
 .sm\:p-6 > .mt-5 > .btn {
-    font-size: 18px;
+    font-size: 20px;
     z-index: 10010;
     border: 1px #24b500 solid;
 }
@@ -381,11 +378,11 @@ tr .text-right {
 }
 li .text-sm > span {
     Color: #00a6cc;
-    font-size: 18px;
+    font-size: 20px;
 }
 li .pt-1 > span {
     Color: #bc0;
-    font-size: 18px;
+    font-size: 20px;
 }
 li .cursor-pointer {
     border: 1px #9f0000 solid;
@@ -411,7 +408,7 @@ li .cursor-pointer {
     border: 1px #b95959 solid;
 }
 .rounded-t-\[5px\] {
-    font-size: 18px;
+    font-size: 20px;
     Color: red;
 }
 .icon-md {
@@ -480,7 +477,7 @@ li .cursor-pointer {
     Color: #d9c7c7 !important;
 }
 .prose :where(h1):not(:where([class~=not-prose] *)) {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 800;
     margin-bottom: 0.5em;
     margin-top: 0;
@@ -499,7 +496,7 @@ li .pt-1 {
     Color: #c40031 !important;
 }
 li > .cursor-pointer .text-sm {
-    font-size: 18px;
+    font-size: 20px;
 }
 .md\:pb-9 {
     padding-bottom: 0.25rem;
@@ -575,7 +572,7 @@ li > .cursor-pointer .text-sm {
 }
 .break-all {
     Color: #d9c7c7 !important;
-    font-size: 18px;
+    font-size: 20px;
 }
 .transition-opacity {
     padding-left: unset;
@@ -595,7 +592,7 @@ li > .cursor-pointer .text-sm {
 /*-----------------------------------------*/
 /*chat history*/
 .truncate {
-    Font-size: 18px;
+    font-size: 20px;
 }
 .mt-5 {
     margin-top: 0;
@@ -607,7 +604,7 @@ li > .cursor-pointer .text-sm {
     --tw-font-weight: var(--font-weight-normal);
     color: #c6a3a3;
     display: block;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: var(--font-weight-normal);
     margin: unset !important;
     padding: 0 !important;
@@ -669,7 +666,7 @@ li > .cursor-pointer .text-sm {
 }
 .line-clamp-3 {
     Color: #d13eff;
-    font-size: 18px;
+    font-size: 20px;
     Font-weight: 600;
 }
 .px-2\.5 {
@@ -689,7 +686,7 @@ li > .cursor-pointer .text-sm {
 }
 #prompt-textarea > p {
     Color: #cd0101;
-    font-size: 18px;
+    font-size: 20px;
 }
 #prompt-textarea {
     margin: 0;
@@ -788,7 +785,6 @@ lastThrottle: 0,
 menuCommandId: null,
 currentURL: location.href
 };
-
 // Utility functions
 const utils = {
 log(message) {
@@ -800,22 +796,17 @@ logger(`ChatGPT Styler: ${message}`);
 console.log(`ChatGPT Styler: ${message}`);
 }
 },
-
 throttle(func, delay) {
 let timeoutId;
 let lastExecTime = 0;
-
 return function(...args) {
 const context = this;
 const currentTime = Date.now();
-
 const execute = function() {
 lastExecTime = currentTime;
 func.apply(context, args);
 };
-
 clearTimeout(timeoutId);
-
 if (currentTime - lastExecTime > delay) {
 execute();
 } else {
@@ -823,7 +814,6 @@ timeoutId = setTimeout(execute, delay - (currentTime - lastExecTime));
 }
 };
 },
-
 safeCall(fn, fallback = null) {
 try {
 return fn();
@@ -832,13 +822,11 @@ this.log(`Error in safeCall: ${e}`);
 return fallback;
 }
 },
-
 getValue(key, defaultValue) {
 return this.safeCall(() =>
 typeof GM_getValue !== 'undefined' ? GM_getValue(key, defaultValue) : defaultValue
 , defaultValue);
 },
-
 setValue(key, value) {
 return this.safeCall(() => {
 if (typeof GM_setValue !== 'undefined') {
@@ -849,42 +837,32 @@ return false;
 }, false);
 }
 };
-
 // Style management
 const styleManager = {
 apply() {
 if (!state.enabled) return false;
-
 this.remove();
-
 // Method 1: Direct style injection (most reliable)
 if (this.injectStyleElement()) return true;
-
 // Method 2: GM_addStyle fallback
 if (this.useGMAddStyle()) return true;
-
 utils.log('Failed to apply styles with any method');
 return false;
 },
-
 injectStyleElement() {
 return utils.safeCall(() => {
 if (!document.head) return false;
-
 state.styleElement = document.createElement('style');
 state.styleElement.id = CONFIG.STYLE_ID;
 state.styleElement.type = 'text/css';
 state.styleElement.textContent = USER_CSS;
-
 // Make it hard to remove
 state.styleElement.setAttribute('data-protected', 'true');
-
 document.head.appendChild(state.styleElement);
 utils.log('Styles applied via style element');
 return true;
 }, false);
 },
-
 useGMAddStyle() {
 return utils.safeCall(() => {
 if (typeof GM_addStyle === 'undefined') return false;
@@ -893,7 +871,6 @@ utils.log('Styles applied via GM_addStyle');
 return true;
 }, false);
 },
-
 remove() {
 // Remove existing style elements
 const existingStyle = document.getElementById(CONFIG.STYLE_ID);
@@ -903,11 +880,9 @@ existingStyle.remove();
 state.styleElement = null;
 utils.log('Styles removed');
 },
-
 isApplied() {
 return !!document.getElementById(CONFIG.STYLE_ID);
 },
-
 forceReapply() {
 if (state.enabled && !this.isApplied()) {
 utils.log('Force reapplying styles');
@@ -915,25 +890,20 @@ this.apply();
 }
 }
 };
-
 // Observer management
 const observerManager = {
 setup() {
 this.cleanup();
 if (!state.enabled) return;
-
 this.createDOMObserver();
 utils.log('Observer started');
 },
-
 createDOMObserver() {
 const throttledReapply = utils.throttle(() => {
 styleManager.forceReapply();
 }, CONFIG.OBSERVER_THROTTLE);
-
 state.observer = new MutationObserver(mutations => {
 let shouldReapply = false;
-
 for (const mutation of mutations) {
 // Check for removed style element
 if (mutation.removedNodes.length > 0) {
@@ -944,24 +914,20 @@ break;
 }
 }
 }
-
 // Check for added nodes that might affect styling
 if (mutation.addedNodes.length > 0 && mutation.target === document.head) {
 shouldReapply = true;
 }
 }
-
 if (shouldReapply) {
 throttledReapply();
 }
 });
-
 state.observer.observe(document, {
 childList: true,
 subtree: true
 });
 },
-
 cleanup() {
 if (state.observer) {
 state.observer.disconnect();
@@ -970,23 +936,19 @@ state.observer = null;
 utils.log('Observer cleaned up');
 }
 };
-
 // Menu management
 const menuManager = {
 setup() {
 if (typeof GM_registerMenuCommand === 'undefined') return;
-
 this.updateToggleCommand();
 utils.log('Menu commands registered');
 },
-
 updateToggleCommand() {
 utils.safeCall(() => {
 // Remove existing command
 if (state.menuCommandId && typeof GM_unregisterMenuCommand !== 'undefined') {
 GM_unregisterMenuCommand(state.menuCommandId);
 }
-
 // Register new command
 const commandText = state.enabled ? '🎨 Styles ON ✅' : '🎨 Styles OFF ❌';
 state.menuCommandId = GM_registerMenuCommand(commandText, () => {
@@ -994,11 +956,9 @@ this.toggleStyles();
 });
 });
 },
-
 toggleStyles() {
 state.enabled = !state.enabled;
 utils.setValue('stylesEnabled', state.enabled);
-
 if (state.enabled) {
 styleManager.apply();
 observerManager.setup();
@@ -1006,12 +966,10 @@ observerManager.setup();
 styleManager.remove();
 observerManager.cleanup();
 }
-
 this.updateToggleCommand();
 utils.log(`Styles ${state.enabled ? 'enabled' : 'disabled'}`);
 }
 };
-
 // SPA Navigation handling
 const navigationManager = {
 init() {
@@ -1019,22 +977,18 @@ this.overrideHistoryMethods();
 window.addEventListener('popstate', this.handleURLChange);
 window.addEventListener('hashchange', this.handleURLChange);
 },
-
 overrideHistoryMethods() {
 const originalPushState = history.pushState;
 const originalReplaceState = history.replaceState;
-
 history.pushState = function() {
 originalPushState.apply(this, arguments);
 navigationManager.handleURLChange();
 };
-
 history.replaceState = function() {
 originalReplaceState.apply(this, arguments);
 navigationManager.handleURLChange();
 };
 },
-
 handleURLChange: utils.throttle(() => {
 if (location.href !== state.currentURL) {
 state.currentURL = location.href;
@@ -1045,38 +999,29 @@ styleManager.forceReapply();
 }
 }, 300)
 };
-
 // Main initialization
 const app = {
 init() {
 utils.log('Initializing ChatGPT Styler Enhanced');
-
 // Load saved state
 state.enabled = utils.getValue('stylesEnabled', true);
-
 // Apply styles with retry mechanism
 this.applyWithRetry();
-
 // Setup observer and menu
 observerManager.setup();
 menuManager.setup();
-
 // Setup event listeners and SPA handling
 this.setupEventListeners();
 navigationManager.init();
-
 utils.log(`Initialization complete. Styles: ${state.enabled ? 'enabled' : 'disabled'}`);
 },
-
 applyWithRetry() {
 if (!state.enabled) return;
-
 const attempt = () => {
 if (styleManager.apply()) {
 state.retryCount = 0;
 return;
 }
-
 state.retryCount++;
 if (state.retryCount < CONFIG.MAX_RETRIES) {
 setTimeout(attempt, CONFIG.RETRY_DELAY);
@@ -1084,10 +1029,8 @@ setTimeout(attempt, CONFIG.RETRY_DELAY);
 utils.log('Max retries reached, giving up');
 }
 };
-
 attempt();
 },
-
 setupEventListeners() {
 // Handle visibility changes
 document.addEventListener('visibilitychange', () => {
@@ -1095,21 +1038,18 @@ if (!document.hidden && state.enabled) {
 setTimeout(() => styleManager.forceReapply(), 100);
 }
 });
-
 // Handle focus events
 window.addEventListener('focus', () => {
 if (state.enabled) {
 setTimeout(() => styleManager.forceReapply(), 100);
 }
 });
-
 // Cleanup on unload
 window.addEventListener('beforeunload', () => {
 observerManager.cleanup();
 });
 }
 };
-
 // Start the application
 if (document.readyState === 'loading') {
 document.addEventListener('DOMContentLoaded', () => app.init());
