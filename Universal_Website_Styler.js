@@ -1,17 +1,10 @@
 // ==UserScript==
-// @name         Universal AI Chat Styler (Multi-Site) - jsDelivr Optimized
+// @name         Universal AI Chat Styler (Berry Browser Compatible)
 // @namespace    http://yourdomain.example
-// @version      3.0
-// @description  Dynamically load custom CSS for ChatGPT and Claude AI via jsDelivr CDN
+// @version      3.1
+// @description  Dynamically load custom CSS for ChatGPT and Claude AI - No Grant Version
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
-// @grant        GM_addStyle
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_log
-// @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
 
@@ -25,12 +18,10 @@ const CONFIG = {
     MAX_RETRIES: 20,
     OBSERVER_THROTTLE: 500,
     CACHE_DURATION: 12 * 60 * 60 * 1000, // 12 hours
-    CACHE_KEY_PREFIX: 'css_cache_v3_',
+    CACHE_KEY_PREFIX: 'css_cache_berry_',
     BERRY_INITIAL_DELAY: 4000, // Increased for Berry Browser
     CHATGPT_READY_CHECK_INTERVAL: 200,
-    CHATGPT_MAX_READY_CHECKS: 30,
-    JSDELIVR_REFRESH_INTERVAL: 3600000, // 1 hour for CDN refresh
-    MAX_CSS_SIZE: 100000 // 100KB max CSS size
+    CHATGPT_MAX_READY_CHECKS: 30
 };
 
 // 🎨 Site configuration with jsDelivr URLs
@@ -39,7 +30,7 @@ const SITES = {
         name: 'ChatGPT',
         // Primary: jsDelivr CDN URL
         styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/ChatGpt_style.css',
-        // Fallback: GitHub raw URL
+        // Fallback: Direct GitHub URL (simplified)
         fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/ChatGpt_style.css',
         
         styleID: 'chatgpt-enhanced-styles',
@@ -47,14 +38,13 @@ const SITES = {
         needsReadyCheck: true,
         readySelector: 'main, [class*="conversation"], #__next',
         aggressiveReapply: true,
-        cdnType: 'jsdelivr',
-        version: 'v3.0'
+        cdnType: 'jsdelivr'
     },
     'claude.ai': {
         name: 'Claude AI',
         // Primary: jsDelivr CDN URL
         styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Claude_AI_style.css',
-        // Fallback: GitHub raw URL
+        // Fallback: Direct GitHub URL (simplified)
         fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Claude_AI_style.css',
         
         styleID: 'claude-enhanced-styles',
@@ -62,8 +52,7 @@ const SITES = {
         needsReadyCheck: false,
         readySelector: 'body',
         aggressiveReapply: false,
-        cdnType: 'jsdelivr',
-        version: 'v3.0'
+        cdnType: 'jsdelivr'
     }
 };
 
@@ -82,40 +71,32 @@ const state = {
     styleElement: null,
     observer: null,
     retryCount: 0,
-    menuCommandId: null,
     currentURL: location.href,
     isLoading: false,
-    hasGrants: false,
-    isBerryBrowser: false,
     isReady: false,
     cssContent: null,
     appliedMethod: null,
     lastApplyTime: 0,
-    lastCDNCheck: 0,
     cdnStatus: 'unknown',
     fetchAttempts: 0
 };
 
-// 🔍 Enhanced browser detection
-(function detectCapabilities() {
-    state.hasGrants = typeof GM_xmlhttpRequest !== 'undefined';
-
+// 🔍 Browser detection
+(function detectBrowser() {
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobile = /android|mobile/i.test(userAgent);
     const isChromiumBased = /chrome|chromium/i.test(userAgent);
-    const isBerry = /berry/i.test(userAgent) || !state.hasGrants && isMobile && isChromiumBased;
-
-    state.isBerryBrowser = isBerry;
-
+    
+    // Berry Browser detection
+    state.isBerryBrowser = isMobile && isChromiumBased;
+    
     if (state.isBerryBrowser) {
-        console.log('🍓 Berry Browser detected - using jsDelivr optimized methods');
-        console.log('🍓 User Agent:', navigator.userAgent);
-        CONFIG.DEBUG_MODE = true; // Force debug mode in Berry
-        state.enhancedDebug = true;
+        console.log('🍓 Berry Browser detected - Using no-grant mode');
+        CONFIG.DEBUG_MODE = true;
     }
 })();
 
-// 🛠️ Utility functions
+// 🛠️ Utility functions (No GM_* dependencies)
 const utils = {
     log(message, level = 'info') {
         if (!CONFIG.DEBUG_MODE && level === 'debug') return;
@@ -127,41 +108,13 @@ const utils = {
             'debug': '🔍',
             'warning': '⚠️',
             'cdn': '📡',
-            'berry': '🍓',
-            'cache': '💾'
+            'berry': '🍓'
         }[level] || 'ℹ️';
     
         const prefix = `${emoji} [${currentSite.name}]`;
         const finalPrefix = state.isBerryBrowser ? `🍓 ${prefix}` : prefix;
         
         console.log(`${finalPrefix} ${message}`);
-        
-        // Log errors to localStorage for debugging
-        if (level === 'error' && state.isBerryBrowser) {
-            this.safeCall(() => {
-                const errorLog = {
-                    timestamp: Date.now(),
-                    site: currentSite.name,
-                    message: message,
-                    url: location.href,
-                    userAgent: navigator.userAgent.substring(0, 100),
-                    state: {
-                        hasGrants: state.hasGrants,
-                        isLoading: state.isLoading,
-                        fetchAttempts: state.fetchAttempts
-                    }
-                };
-                
-                const logKey = `ai_styler_error_${Date.now()}`;
-                localStorage.setItem(logKey, JSON.stringify(errorLog));
-                
-                // Keep only last 10 errors
-                const keys = Object.keys(localStorage).filter(k => k.startsWith('ai_styler_error_'));
-                if (keys.length > 10) {
-                    keys.sort().slice(0, keys.length - 10).forEach(k => localStorage.removeItem(k));
-                }
-            });
-        }
     },
 
     throttle(func, delay) {
@@ -187,42 +140,22 @@ const utils = {
         };
     },
 
-    safeCall(fn, fallback = null) {
+    getValue(key, defaultValue) {
         try {
-            return fn();
+            const item = localStorage.getItem(key);
+            return item !== null ? JSON.parse(item) : defaultValue;
         } catch (e) {
-            this.log(`Error in safeCall: ${e.message}`, 'debug');
-            return fallback;
+            return defaultValue;
         }
     },
 
-    getValue(key, defaultValue) {
-        return this.safeCall(() => {
-            if (typeof GM_getValue !== 'undefined') {
-                return GM_getValue(key, defaultValue);
-            }
-            try {
-                const item = localStorage.getItem(key);
-                return item !== null ? JSON.parse(item) : defaultValue;
-            } catch (e) {
-                return defaultValue;
-            }
-        }, defaultValue);
-    },
-
     setValue(key, value) {
-        return this.safeCall(() => {
-            if (typeof GM_setValue !== 'undefined') {
-                GM_setValue(key, value);
-                return true;
-            }
-            try {
-                localStorage.setItem(key, JSON.stringify(value));
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }, false);
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+            return true;
+        } catch (e) {
+            return false;
+        }
     },
 
     getCurrentSiteEnabled() {
@@ -239,11 +172,11 @@ const utils = {
     
         if (!cacheData) return null;
     
-        const { css, timestamp, url, version } = cacheData;
+        const { css, timestamp, url } = cacheData;
         const now = Date.now();
     
         // Check if cache is for current URL
-        if (url !== state.site.styleURL) {
+        if (url !== state.site.styleURL && url !== state.site.fallbackURL) {
             this.log('CSS URL changed, invalidating cache', 'warning');
             return null;
         }
@@ -254,13 +187,7 @@ const utils = {
             return null;
         }
     
-        // Check version mismatch
-        if (version !== state.site.version) {
-            this.log('Version mismatch, invalidating cache', 'debug');
-            return null;
-        }
-    
-        this.log(`Using cached CSS (${Math.round((now - timestamp)/60000)}min old)`, 'cache');
+        this.log(`Using cached CSS (${Math.round((now - timestamp)/60000)}min old)`, 'success');
         return css;
     },
 
@@ -270,17 +197,20 @@ const utils = {
             css: css,
             timestamp: Date.now(),
             url: state.site.styleURL,
-            version: state.site.version,
             size: css.length
         };
         return this.setValue(cacheKey, cacheData);
     },
 
     clearCache() {
-        const keys = Object.keys(localStorage).filter(k => k.startsWith(CONFIG.CACHE_KEY_PREFIX));
-        keys.forEach(k => localStorage.removeItem(k));
-        this.log('Cache cleared', 'success');
-        return keys.length;
+        try {
+            const keys = Object.keys(localStorage).filter(k => k.startsWith(CONFIG.CACHE_KEY_PREFIX));
+            keys.forEach(k => localStorage.removeItem(k));
+            this.log(`Cleared ${keys.length} cache entries`, 'success');
+            return keys.length;
+        } catch (e) {
+            return 0;
+        }
     },
 
     async waitForElement(selector, timeout = 10000) {
@@ -321,34 +251,10 @@ const utils = {
     
         this.log('Page ready check timed out, continuing anyway', 'warning');
         return false;
-    },
-
-    // New: Test CDN connectivity
-    async testCDNConnectivity() {
-        const testURL = state.site.styleURL;
-        this.log(`Testing CDN connectivity: ${testURL}`, 'cdn');
-        
-        try {
-            const startTime = Date.now();
-            const response = await fetch(testURL, {
-                method: 'HEAD',
-                mode: 'no-cors',
-                cache: 'no-store'
-            });
-            const latency = Date.now() - startTime;
-            
-            state.cdnStatus = 'available';
-            this.log(`CDN latency: ${latency}ms`, 'cdn');
-            return true;
-        } catch (error) {
-            state.cdnStatus = 'unavailable';
-            this.log(`CDN test failed: ${error.message}`, 'error');
-            return false;
-        }
     }
 };
 
-// 📥 Enhanced CSS loader - jsDelivr Optimized
+// 📥 CSS loader - Optimized for Berry Browser (no GM_xmlhttpRequest)
 const cssLoader = {
     async fetchExternalCSS() {
         state.fetchAttempts++;
@@ -361,39 +267,16 @@ const cssLoader = {
         }
 
         utils.log(`Fetch attempt #${state.fetchAttempts} for ${state.site.name}`, 'info');
+        
+        // 2. Always try jsDelivr first (primary CDN)
         utils.log(`Primary CDN: ${state.site.styleURL}`, 'cdn');
-        if (state.site.fallbackURL) {
-            utils.log(`Fallback: ${state.site.fallbackURL}`, 'debug');
-        }
-
-        // 2. Try GM_xmlhttpRequest first (Tampermonkey/Violentmonkey)
-        if (state.hasGrants && typeof GM_xmlhttpRequest !== 'undefined') {
-            try {
-                const css = await this.fetchViaGM();
-                utils.setCachedCSS(css);
-                state.cssContent = css;
-                state.cdnStatus = 'jsdelivr_via_gm';
-                return css;
-            } catch (error) {
-                utils.log(`GM fetch failed: ${error.message}`, 'error');
-            }
-        }
-
-        // 3. BERRY BROWSER OPTIMIZED PATH
+        
+        // 3. For Berry Browser, use specialized fetch strategies
         if (state.isBerryBrowser) {
-            utils.log('Berry Browser detected - using optimized fetch strategy', 'berry');
-            try {
-                const css = await this.fetchForBerryBrowser();
-                utils.setCachedCSS(css);
-                state.cssContent = css;
-                return css;
-            } catch (berryError) {
-                utils.log(`Berry optimized fetch failed: ${berryError.message}`, 'error');
-                // Continue to fallback methods
-            }
+            return await this.fetchForBerryBrowser();
         }
-
-        // 4. STANDARD BROWSERS: Direct fetch from jsDelivr
+        
+        // 4. For standard browsers, try jsDelivr directly
         try {
             const css = await this.fetchDirect();
             utils.setCachedCSS(css);
@@ -403,9 +286,8 @@ const cssLoader = {
         } catch (directError) {
             utils.log(`Direct jsDelivr fetch failed: ${directError.message}`, 'debug');
             
-            // 5. FALLBACK 1: GitHub raw URL
+            // 5. Fallback to GitHub
             if (state.site.fallbackURL) {
-                utils.log('Trying GitHub fallback URL...', 'debug');
                 try {
                     const css = await this.fetchGitHubFallback();
                     utils.setCachedCSS(css);
@@ -417,7 +299,7 @@ const cssLoader = {
                 }
             }
             
-            // 6. FALLBACK 2: CORS proxy as last resort
+            // 6. Last resort: CORS proxy
             try {
                 const css = await this.fetchViaCORSProxy();
                 utils.setCachedCSS(css);
@@ -431,61 +313,20 @@ const cssLoader = {
         }
     },
 
-    // Method 1: GM_xmlhttpRequest
-    fetchViaGM() {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: state.site.styleURL,
-                timeout: 15000,
-                headers: {
-                    'Accept': 'text/css,*/*',
-                    'Cache-Control': 'no-cache',
-                    'User-Agent': 'Mozilla/5.0 (compatible; UserScript/3.0; +https://github.com/yfjuu4)'
-                },
-                onload: (response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        const css = response.responseText;
-                        if (css && css.trim().length > 0) {
-                            if (css.length > CONFIG.MAX_CSS_SIZE) {
-                                utils.log(`CSS file very large: ${css.length} bytes`, 'warning');
-                            }
-                            utils.log(`Fetched ${css.length} chars via GM from jsDelivr`, 'success');
-                            resolve(css);
-                        } else {
-                            reject(new Error('Empty response from jsDelivr'));
-                        }
-                    } else {
-                        reject(new Error(`jsDelivr HTTP ${response.status}`));
-                    }
-                },
-                onerror: () => reject(new Error('Network error with jsDelivr')),
-                ontimeout: () => reject(new Error('jsDelivr request timeout'))
-            });
-        });
-    },
-
-    // Method 2: Standard direct fetch
+    // Standard fetch for modern browsers
     async fetchDirect() {
         utils.log(`Direct fetch from jsDelivr`, 'cdn');
         
-        const startTime = Date.now();
         const response = await fetch(state.site.styleURL, {
             method: 'GET',
-            headers: {
-                'Accept': 'text/css,*/*',
-                'User-Agent': 'Mozilla/5.0 (compatible; UserScript/3.0)'
-            },
+            headers: { 'Accept': 'text/css,*/*' },
             mode: 'cors',
             cache: 'no-store',
-            credentials: 'omit',
-            referrerPolicy: 'no-referrer'
+            credentials: 'omit'
         });
         
-        const fetchTime = Date.now() - startTime;
-        
         if (!response.ok) {
-            throw new Error(`jsDelivr HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`jsDelivr HTTP ${response.status}`);
         }
         
         const css = await response.text();
@@ -494,84 +335,97 @@ const cssLoader = {
             throw new Error('Empty CSS response from jsDelivr');
         }
         
-        utils.log(`Fetched ${css.length} chars from jsDelivr in ${fetchTime}ms`, 'success');
+        utils.log(`Fetched ${css.length} chars from jsDelivr`, 'success');
         return css;
     },
 
-    // Method 3: Berry Browser optimized fetch
+    // 🍓 Specialized fetch for Berry Browser
     async fetchForBerryBrowser() {
-        utils.log('Berry: Starting jsDelivr optimized fetch...', 'berry');
-        state.cdnStatus = 'berry_optimized';
+        utils.log('Berry: Starting optimized fetch sequence...', 'berry');
         
-        const strategies = [
-            { name: 'cors-mode', mode: 'cors', cache: 'reload' },
-            { name: 'no-cors-mode', mode: 'no-cors', cache: 'reload' },
-            { name: 'cors-no-cache', mode: 'cors', cache: 'no-cache' },
-            { name: 'no-cors-no-cache', mode: 'no-cors', cache: 'no-cache' }
-        ];
-        
-        // Try each strategy
-        for (const strategy of strategies) {
-            utils.log(`Berry: Trying ${strategy.name}...`, 'debug');
+        // Strategy 1: Try jsDelivr with no-cors first (most likely to work)
+        utils.log('Berry: Trying jsDelivr with no-cors mode...', 'debug');
+        try {
+            const response = await fetch(state.site.styleURL, {
+                method: 'GET',
+                mode: 'no-cors',
+                cache: 'reload'
+            });
             
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000);
-                
-                const response = await fetch(state.site.styleURL, {
-                    method: 'GET',
-                    headers: { 'Accept': 'text/css,*/*' },
-                    mode: strategy.mode,
-                    cache: strategy.cache,
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                
-                // With 'no-cors' we can't check status, but can try to get text
-                const css = await response.text();
-                
-                if (css && css.trim().length > 10) {
-                    utils.log(`Berry (${strategy.name}): Got ${css.length} chars`, 'success');
-                    return css;
-                }
-            } catch (error) {
-                utils.log(`Berry (${strategy.name}) failed: ${error.message}`, 'debug');
-                continue;
+            const css = await response.text();
+            
+            if (css && css.trim().length > 10) {
+                utils.log(`Berry (no-cors): Got ${css.length} chars from jsDelivr`, 'success');
+                utils.setCachedCSS(css);
+                state.cssContent = css;
+                state.cdnStatus = 'jsdelivr_no_cors';
+                return css;
             }
+        } catch (noCorsError) {
+            utils.log(`Berry (no-cors) failed: ${noCorsError.message}`, 'debug');
         }
         
-        // If jsDelivr fails, try GitHub fallback
-        if (state.site.fallbackURL) {
-            utils.log('Berry: Trying GitHub fallback...', 'berry');
+        // Strategy 2: Try jsDelivr with cors mode
+        utils.log('Berry: Trying jsDelivr with cors mode...', 'debug');
+        try {
+            const response = await fetch(state.site.styleURL, {
+                method: 'GET',
+                mode: 'cors',
+                cache: 'no-cache'
+            });
             
-            try {
-                const response = await fetch(state.site.fallbackURL, {
-                    method: 'GET',
-                    mode: 'no-cors',
-                    cache: 'reload'
-                });
-                
+            if (response.ok) {
                 const css = await response.text();
-                if (css && css.trim().length > 10) {
-                    utils.log(`Berry: Got ${css.length} chars from GitHub fallback`, 'success');
-                    state.cdnStatus = 'github_fallback_berry';
+                if (css && css.trim().length > 0) {
+                    utils.log(`Berry (cors): Fetched ${css.length} chars from jsDelivr`, 'success');
+                    utils.setCachedCSS(css);
+                    state.cssContent = css;
+                    state.cdnStatus = 'jsdelivr_cors';
                     return css;
                 }
-            } catch (githubError) {
-                utils.log(`Berry GitHub fallback failed: ${githubError.message}`, 'debug');
             }
+        } catch (corsError) {
+            utils.log(`Berry (cors) failed: ${corsError.message}`, 'debug');
+        }
+        
+        // Strategy 3: Try GitHub fallback with no-cors
+        utils.log('Berry: Trying GitHub fallback...', 'berry');
+        try {
+            const response = await fetch(state.site.fallbackURL, {
+                method: 'GET',
+                mode: 'no-cors',
+                cache: 'reload'
+            });
+            
+            const css = await response.text();
+            if (css && css.trim().length > 10) {
+                utils.log(`Berry: Got ${css.length} chars from GitHub fallback`, 'success');
+                utils.setCachedCSS(css);
+                state.cssContent = css;
+                state.cdnStatus = 'github_fallback';
+                return css;
+            }
+        } catch (githubError) {
+            utils.log(`Berry GitHub fallback failed: ${githubError.message}`, 'debug');
+        }
+        
+        // Strategy 4: Try CORS proxies as last resort
+        utils.log('Berry: Trying CORS proxies...', 'berry');
+        try {
+            const css = await this.fetchViaCORSProxy();
+            utils.setCachedCSS(css);
+            state.cssContent = css;
+            state.cdnStatus = 'cors_proxy';
+            return css;
+        } catch (proxyError) {
+            utils.log(`Berry CORS proxy failed: ${proxyError.message}`, 'error');
         }
         
         throw new Error('Berry Browser: All fetch methods failed');
     },
 
-    // Method 4: GitHub fallback
+    // GitHub fallback method
     async fetchGitHubFallback() {
-        if (!state.site.fallbackURL) {
-            throw new Error('No fallback URL configured');
-        }
-        
         utils.log(`Trying GitHub fallback`, 'debug');
         
         const response = await fetch(state.site.fallbackURL, {
@@ -595,22 +449,20 @@ const cssLoader = {
         return css;
     },
 
-    // Method 5: CORS proxy
+    // CORS proxy method
     async fetchViaCORSProxy() {
         utils.log('Trying CORS proxies...', 'debug');
         
-        // Try jsDelivr URLs first
-        const primaryProxies = [
+        const proxies = [
             `https://corsproxy.io/?${encodeURIComponent(state.site.styleURL)}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(state.site.styleURL)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(state.site.styleURL)}`,
-            state.site.styleURL // Direct as last attempt
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(state.site.styleURL)}`
         ];
         
-        for (let i = 0; i < primaryProxies.length; i++) {
-            const proxyUrl = primaryProxies[i];
+        for (let i = 0; i < proxies.length; i++) {
+            const proxyUrl = proxies[i];
             try {
-                utils.log(`Proxy ${i + 1}/${primaryProxies.length} for jsDelivr`, 'debug');
+                utils.log(`Proxy ${i + 1}/${proxies.length}`, 'debug');
                 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -632,7 +484,7 @@ const cssLoader = {
                 const css = await response.text();
                 
                 if (css && css.trim().length > 0) {
-                    utils.log(`Fetched ${css.length} chars via proxy (jsDelivr)`, 'success');
+                    utils.log(`Fetched ${css.length} chars via proxy`, 'success');
                     return css;
                 }
             } catch (error) {
@@ -641,59 +493,11 @@ const cssLoader = {
             }
         }
         
-        // If jsDelivr proxies fail, try GitHub URL through proxies
-        if (state.site.fallbackURL) {
-            utils.log('Trying GitHub through proxies...', 'debug');
-            
-            const fallbackProxies = [
-                `https://corsproxy.io/?${encodeURIComponent(state.site.fallbackURL)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(state.site.fallbackURL)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(state.site.fallbackURL)}`
-            ];
-            
-            for (let i = 0; i < fallbackProxies.length; i++) {
-                const proxyUrl = fallbackProxies[i];
-                try {
-                    utils.log(`GitHub Proxy ${i + 1}/${fallbackProxies.length}`, 'debug');
-                    
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000);
-                    
-                    const response = await fetch(proxyUrl, {
-                        method: 'GET',
-                        headers: { 'Accept': 'text/css,*/*' },
-                        signal: controller.signal,
-                        mode: 'cors',
-                        cache: 'no-cache'
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    const css = await response.text();
-                    
-                    if (css && css.trim().length > 0) {
-                        utils.log(`Fetched ${css.length} chars via proxy (GitHub)`, 'success');
-                        return css;
-                    }
-                } catch (error) {
-                    utils.log(`GitHub Proxy ${i + 1} failed: ${error.message}`, 'debug');
-                    if (i === fallbackProxies.length - 1) {
-                        throw error;
-                    }
-                    continue;
-                }
-            }
-        }
-        
         throw new Error('All CORS proxies failed');
     }
 };
 
-// 🎨 Style manager (unchanged from your working version)
+// 🎨 Style manager
 const styleManager = {
     async apply() {
         if (!utils.getCurrentSiteEnabled() || state.isLoading) {
@@ -722,10 +526,10 @@ const styleManager = {
                 throw new Error('No CSS content available');
             }
 
+            // Try injection methods
             const methods = [
-                { name: 'blob-link', fn: () => this.injectViaBlob() },
                 { name: 'style-element', fn: () => this.injectViaStyle() },
-                { name: 'external-link', fn: () => this.injectViaExternalLink() }
+                { name: 'blob-link', fn: () => this.injectViaBlob() }
             ];
 
             for (const method of methods) {
@@ -751,6 +555,27 @@ const styleManager = {
         }
     },
 
+    // Method 1: Inline style element (most reliable)
+    injectViaStyle() {
+        if (!document.head) return false;
+    
+        const style = document.createElement('style');
+        style.id = state.site.styleID;
+        style.type = 'text/css';
+        style.textContent = state.cssContent;
+        style.setAttribute('data-cdn', state.cdnStatus);
+    
+        try {
+            document.head.appendChild(style);
+            state.styleElement = style;
+            return true;
+        } catch (error) {
+            style.remove();
+            return false;
+        }
+    },
+
+    // Method 2: Blob URL (works in most browsers)
     async injectViaBlob() {
         if (!document.head) return false;
     
@@ -762,7 +587,6 @@ const styleManager = {
         link.rel = 'stylesheet';
         link.type = 'text/css';
         link.href = blobUrl;
-        link.setAttribute('data-method', 'blob');
         link.setAttribute('data-cdn', state.cdnStatus);
     
         return new Promise((resolve) => {
@@ -779,6 +603,7 @@ const styleManager = {
         
             document.head.appendChild(link);
         
+            // Fallback timeout
             setTimeout(() => {
                 if (link.sheet) {
                     state.styleElement = link;
@@ -790,55 +615,6 @@ const styleManager = {
         });
     },
 
-    injectViaStyle() {
-        if (!document.head) return false;
-    
-        const style = document.createElement('style');
-        style.id = state.site.styleID;
-        style.type = 'text/css';
-        style.textContent = state.cssContent;
-        style.setAttribute('data-method', 'inline');
-        style.setAttribute('data-cdn', state.cdnStatus);
-    
-        try {
-            document.head.appendChild(style);
-            state.styleElement = style;
-            return true;
-        } catch (error) {
-            style.remove();
-            return false;
-        }
-    },
-
-    async injectViaExternalLink() {
-        if (!document.head) return false;
-    
-        const link = document.createElement('link');
-        link.id = state.site.styleID;
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.href = state.site.styleURL;
-        link.setAttribute('data-method', 'external');
-        link.setAttribute('data-cdn', 'jsdelivr_direct');
-        link.setAttribute('crossorigin', 'anonymous');
-    
-        return new Promise((resolve) => {
-            link.onload = () => {
-                state.styleElement = link;
-                resolve(true);
-            };
-        
-            link.onerror = () => {
-                link.remove();
-                resolve(false);
-            };
-        
-            document.head.appendChild(link);
-        
-            setTimeout(() => resolve(false), 3000);
-        });
-    },
-
     remove() {
         const existingStyle = document.getElementById(state.site.styleID);
         if (existingStyle) {
@@ -846,17 +622,10 @@ const styleManager = {
                 URL.revokeObjectURL(existingStyle.href);
             }
             existingStyle.remove();
+            utils.log('Styles removed', 'debug');
         }
     
-        const orphans = document.querySelectorAll(`[data-method]`);
-        orphans.forEach(el => {
-            if (el.id === state.site.styleID || el.getAttribute('data-site') === currentDomain) {
-                el.remove();
-            }
-        });
-    
         state.styleElement = null;
-        utils.log('Styles removed', 'debug');
     },
 
     isApplied() {
@@ -871,7 +640,7 @@ const styleManager = {
     }
 };
 
-// 👁️ Observer manager (unchanged from your working version)
+// 👁️ Observer manager
 const observerManager = {
     setup() {
         this.cleanup();
@@ -918,7 +687,7 @@ const observerManager = {
 
     createAggressiveObserver() {
         let checkCount = 0;
-        const maxChecks = 100;
+        const maxChecks = 50;
     
         const checkAndReapply = async () => {
             if (checkCount++ > maxChecks) {
@@ -947,28 +716,13 @@ const observerManager = {
             }
             state.observer = null;
         }
-        utils.log('Observer cleaned up', 'debug');
     }
 };
 
-// 📱 Menu manager with enhanced debug features
-const menuManager = {
+// 📱 Floating button manager (no GM_registerMenuCommand)
+const buttonManager = {
     setup() {
-        if (typeof GM_registerMenuCommand !== 'undefined') {
-            this.createMenuCommands();
-        } else {
-            this.createFloatingButton();
-        }
-    },
-
-    createMenuCommands() {
-        this.updateToggleCommand();
-        
-        // Add debug command in Berry Browser
-        if (state.isBerryBrowser && typeof GM_registerMenuCommand !== 'undefined') {
-            GM_registerMenuCommand('🐛 Debug Info', () => this.showDebugInfo());
-            GM_registerMenuCommand('🗑️ Clear Cache', () => this.clearCache());
-        }
+        this.createFloatingButton();
     },
 
     createFloatingButton() {
@@ -1011,15 +765,10 @@ const menuManager = {
             button.addEventListener('touchstart', (e) => {
                 longPressTimer = setTimeout(() => {
                     this.showDebugInfo();
-                    this.showToast('Debug info logged to console');
                 }, 1500);
             });
             
             button.addEventListener('touchend', () => {
-                clearTimeout(longPressTimer);
-            });
-            
-            button.addEventListener('touchcancel', () => {
                 clearTimeout(longPressTimer);
             });
         }
@@ -1027,6 +776,7 @@ const menuManager = {
         const addButton = () => {
             if (document.body) {
                 document.body.appendChild(button);
+                this.addPulseAnimation();
             } else {
                 setTimeout(addButton, 100);
             }
@@ -1043,27 +793,12 @@ const menuManager = {
         button.style.opacity = isEnabled ? '1' : '0.6';
         button.title = `${state.site.name}: ${isEnabled ? 'ON' : 'OFF'} | CDN: ${state.cdnStatus}`;
         
-        // Berry Browser: Add pulse animation when loading
+        // Pulse animation when loading
         if (state.isLoading) {
             button.style.animation = 'pulse 1.5s infinite';
         } else {
             button.style.animation = 'none';
         }
-    },
-
-    updateToggleCommand() {
-        utils.safeCall(() => {
-            if (state.menuCommandId && typeof GM_unregisterMenuCommand !== 'undefined') {
-                GM_unregisterMenuCommand(state.menuCommandId);
-            }
-
-            const isEnabled = utils.getCurrentSiteEnabled();
-            const text = `${isEnabled ? '✅' : '❌'} ${state.site.name} Styles (CDN: ${state.cdnStatus})`;
-        
-            state.menuCommandId = GM_registerMenuCommand(text, () => {
-                this.toggleCurrentSiteStyles();
-            });
-        });
     },
 
     toggleCurrentSiteStyles() {
@@ -1079,8 +814,7 @@ const menuManager = {
         }
 
         this.updateButtonState();
-        this.updateToggleCommand();
-        this.showToast(`${state.site.name}: ${newEnabled ? 'ON' : 'OFF'} | CDN: ${state.cdnStatus}`);
+        this.showToast(`${state.site.name}: ${newEnabled ? 'ON' : 'OFF'}`);
     },
 
     showDebugInfo() {
@@ -1091,33 +825,16 @@ Site: ${state.site.name}
 URL: ${window.location.href}
 CDN Status: ${state.cdnStatus}
 CDN URL: ${state.site.styleURL}
-Fallback URL: ${state.site.fallbackURL}
-Has Grants: ${state.hasGrants}
-Is Loading: ${state.isLoading}
 Fetch Attempts: ${state.fetchAttempts}
-CSS Content Length: ${state.cssContent ? state.cssContent.length : 'None'}
-Applied Method: ${state.appliedMethod || 'None'}
+CSS Loaded: ${state.cssContent ? state.cssContent.length + ' chars' : 'No'}
 Style Applied: ${styleManager.isApplied()}
-Cache Size: ${localStorage.getItem(CONFIG.CACHE_KEY_PREFIX + state.site.name) ? 'Cached' : 'None'}
-User Agent: ${navigator.userAgent}
+Applied Method: ${state.appliedMethod || 'None'}
+Cache: ${utils.getValue(CONFIG.CACHE_KEY_PREFIX + state.site.name, null) ? 'Yes' : 'No'}
 ============================
         `.trim();
         
         console.log(info);
-        
-        // Also show in toast
-        this.showToast(`Debug info logged to console`);
-    },
-
-    clearCache() {
-        const cleared = utils.clearCache();
-        this.showToast(`Cleared ${cleared} cache entries`);
-        
-        // Force reload CSS
-        if (utils.getCurrentSiteEnabled()) {
-            state.cssContent = null;
-            setTimeout(() => styleManager.forceReapply(), 500);
-        }
+        this.showToast('Debug info in console');
     },
 
     showToast(message) {
@@ -1147,145 +864,12 @@ User Agent: ${navigator.userAgent}
                     toast.style.opacity = '0';
                     toast.style.transform = 'translateY(10px)';
                     setTimeout(() => toast.remove(), 300);
-                }, 3000);
+                }, 2000);
             } else {
                 setTimeout(addToast, 100);
             }
         };
         addToast();
-    }
-};
-
-// 🧭 Navigation manager (unchanged from your working version)
-const navigationManager = {
-    init() {
-        if (!state.isBerryBrowser) {
-            this.overrideHistoryMethods();
-        }
-    
-        window.addEventListener('popstate', this.handleURLChange);
-        window.addEventListener('hashchange', this.handleURLChange);
-    },
-
-    overrideHistoryMethods() {
-        const originalPushState = history.pushState;
-        const originalReplaceState = history.replaceState;
-
-        history.pushState = function(...args) {
-            originalPushState.apply(this, args);
-            navigationManager.handleURLChange();
-        };
-
-        history.replaceState = function(...args) {
-            originalReplaceState.apply(this, args);
-            navigationManager.handleURLChange();
-        };
-    },
-
-    handleURLChange: utils.throttle(() => {
-        if (location.href !== state.currentURL) {
-            state.currentURL = location.href;
-            utils.log(`URL changed: ${state.currentURL}`, 'debug');
-        
-            if (utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 300);
-            }
-        }
-    }, 500)
-};
-
-// 🚀 Main application
-const app = {
-    async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v3.0 (jsDelivr)`, 'info');
-        utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard Browser'}`, 'info');
-        utils.log(`CDN Provider: ${state.site.cdnType}`, 'cdn');
-    
-        // Initial delay - longer for Berry Browser
-        const initialDelay = state.isBerryBrowser ? 2000 : 500;
-    
-        setTimeout(async () => {
-            // Test CDN connectivity (non-blocking)
-            if (state.isBerryBrowser) {
-                utils.testCDNConnectivity().then(available => {
-                    if (!available) {
-                        utils.log('CDN may be unavailable, will use fallbacks', 'warning');
-                    }
-                });
-            }
-        
-            await this.applyWithRetry();
-            observerManager.setup();
-            menuManager.setup();
-            navigationManager.init();
-            this.setupEventListeners();
-        
-            const status = utils.getCurrentSiteEnabled() ? 'ENABLED ✅' : 'DISABLED ❌';
-            utils.log(`Initialization complete. Status: ${status}`, 'success');
-            
-            // Berry Browser: Log final state
-            if (state.isBerryBrowser) {
-                setTimeout(() => {
-                    utils.log(`Final State - CSS: ${state.cssContent ? state.cssContent.length + ' chars' : 'None'}, Method: ${state.appliedMethod || 'None'}`, 'berry');
-                }, 1000);
-            }
-        }, initialDelay);
-    },
-
-    async applyWithRetry() {
-        if (!utils.getCurrentSiteEnabled()) return;
-
-        for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
-            try {
-                utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
-            
-                if (await styleManager.apply()) {
-                    utils.log('Styles successfully applied!', 'success');
-                    
-                    // Update button with CDN info
-                    menuManager.updateButtonState();
-                    menuManager.updateToggleCommand();
-                    
-                    return;
-                }
-            } catch (error) {
-                utils.log(`Attempt ${attempt} error: ${error.message}`, 'error');
-            }
-
-            if (attempt < CONFIG.MAX_RETRIES) {
-                await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
-            }
-        }
-    
-        utils.log('Max retries reached - styles may not be applied', 'warning');
-        
-        // Berry Browser: Offer manual refresh
-        if (state.isBerryBrowser && !styleManager.isApplied()) {
-            setTimeout(() => {
-                menuManager.showToast('CSS failed to load. Long-press button for debug.');
-            }, 1000);
-        }
-    },
-
-    setupEventListeners() {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 200);
-            }
-        });
-
-        window.addEventListener('focus', () => {
-            if (utils.getCurrentSiteEnabled()) {
-                setTimeout(() => styleManager.forceReapply(), 200);
-            }
-        });
-
-        window.addEventListener('beforeunload', () => {
-            observerManager.cleanup();
-        });
-        
-        // Add CSS for pulse animation
-        this.addPulseAnimation();
     },
 
     addPulseAnimation() {
@@ -1307,20 +891,88 @@ const app = {
     }
 };
 
+// 🧭 Navigation manager
+const navigationManager = {
+    init() {
+        window.addEventListener('popstate', this.handleURLChange);
+        window.addEventListener('hashchange', this.handleURLChange);
+    },
+
+    handleURLChange: utils.throttle(() => {
+        if (location.href !== state.currentURL) {
+            state.currentURL = location.href;
+            utils.log(`URL changed: ${state.currentURL}`, 'debug');
+        
+            if (utils.getCurrentSiteEnabled()) {
+                setTimeout(() => styleManager.forceReapply(), 300);
+            }
+        }
+    }, 500)
+};
+
+// 🚀 Main application
+const app = {
+    async init() {
+        utils.log(`🚀 Initializing ${state.site.name} Styler v3.1 (Berry Compatible)`, 'info');
+        utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard Browser'}`, 'info');
+    
+        // Initial delay - longer for Berry Browser
+        const initialDelay = state.isBerryBrowser ? 2000 : 500;
+    
+        setTimeout(async () => {
+            await this.applyWithRetry();
+            observerManager.setup();
+            buttonManager.setup();
+            navigationManager.init();
+            this.setupEventListeners();
+        
+            const status = utils.getCurrentSiteEnabled() ? 'ENABLED ✅' : 'DISABLED ❌';
+            utils.log(`Initialization complete. Status: ${status}`, 'success');
+        }, initialDelay);
+    },
+
+    async applyWithRetry() {
+        if (!utils.getCurrentSiteEnabled()) return;
+
+        for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+            try {
+                utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
+            
+                if (await styleManager.apply()) {
+                    utils.log('Styles successfully applied!', 'success');
+                    buttonManager.updateButtonState();
+                    return;
+                }
+            } catch (error) {
+                utils.log(`Attempt ${attempt} error: ${error.message}`, 'error');
+            }
+
+            if (attempt < CONFIG.MAX_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
+            }
+        }
+    
+        utils.log('Max retries reached - styles may not be applied', 'warning');
+    },
+
+    setupEventListeners() {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && utils.getCurrentSiteEnabled()) {
+                setTimeout(() => styleManager.forceReapply(), 200);
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            observerManager.cleanup();
+        });
+    }
+};
+
 // 🏁 Start the application
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => app.init());
 } else {
     app.init();
-}
-
-// Berry Browser: Add global error handler
-if (state.isBerryBrowser) {
-    window.addEventListener('error', (event) => {
-        if (event.message && event.message.includes('fetch') || event.message.includes('CSS')) {
-            utils.log(`Global error: ${event.message}`, 'error');
-        }
-    });
 }
 
 })();
