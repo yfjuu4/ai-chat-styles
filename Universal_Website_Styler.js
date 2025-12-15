@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Universal AI Chat Styler (Berry Browser Compatible)
 // @namespace    http://yourdomain.example
-// @version      3.3
-// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, and GitHub via jsDelivr - Berry Browser Optimized
+// @version      3.4
+// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, GitHub, and Facebook via jsDelivr - Berry Browser Optimized
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
 // @match        https://www.google.com/*
@@ -10,6 +10,9 @@
 // @match        https://*.google.com/*
 // @match        https://github.com/*
 // @match        https://*.github.com/*
+// @match        https://www.facebook.com/*
+// @match        https://facebook.com/*
+// @match        https://*.facebook.com/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
@@ -29,7 +32,8 @@ const CONFIG = {
     CHATGPT_READY_CHECK_INTERVAL: 200,
     CHATGPT_MAX_READY_CHECKS: 30,
     GOOGLE_DELAY: 2000,
-    GITHUB_DELAY: 1500  // 🆕 GitHub delay
+    GITHUB_DELAY: 1500,
+    FACEBOOK_DELAY: 2500  // 🆕 Facebook delay
 };
 
 // 🎨 Site configuration with jsDelivr URLs
@@ -74,7 +78,6 @@ const SITES = {
         isGoogle: true,
         searchSelectors: ['#searchform', 'form[action="/search"]', '[name="q"]']
     },
-    // 🆕 GitHub configuration
     'github.com': {
         name: 'GitHub',
         styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/github%20style.css',
@@ -93,6 +96,26 @@ const SITES = {
             'issues': '.issues-listing',
             'pull_requests': '.pull-requests-listing'
         }
+    },
+    // 🆕 Facebook configuration
+    'www.facebook.com': {
+        name: 'Facebook',
+        styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Facebook_style.css',
+        fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Facebook_style.css',
+        styleID: 'facebook-enhanced-styles',
+        needsReadyCheck: true,
+        readySelector: 'body, #facebook, [role="main"], [data-pagelet], ._2s1x',
+        aggressiveReapply: true,
+        isFacebook: true,
+        pageSelectors: {
+            'home': '[data-pagelet="root"]',
+            'profile': '[data-pagelet="ProfileTimeline"]',
+            'messages': '[data-pagelet="MessagingWindow"]',
+            'notifications': '[data-pagelet="NotificationsFlyout"]',
+            'watch': '[data-pagelet="VideoHomePage"]',
+            'marketplace': '[data-pagelet="MarketplacePage"]',
+            'groups': '[data-pagelet="GroupsPage"]'
+        }
     }
 };
 
@@ -100,19 +123,19 @@ const SITES = {
 function detectCurrentSite() {
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
-   
+  
     // Direct domain match
     if (SITES[hostname]) {
         return SITES[hostname];
     }
-   
+  
     // Handle all Google domains
     if (hostname.includes('google.')) {
         const isSearchPage = pathname === '/search' ||
                             pathname === '/' ||
                             document.querySelector('input[name="q"]') ||
                             document.querySelector('form[action*="/search"]');
-       
+      
         if (isSearchPage) {
             return {
                 name: 'Google Search',
@@ -127,8 +150,8 @@ function detectCurrentSite() {
             };
         }
     }
-   
-    // 🆕 Handle GitHub domains
+  
+    // Handle GitHub domains
     if (hostname.includes('github.')) {
         return {
             name: 'GitHub',
@@ -150,7 +173,30 @@ function detectCurrentSite() {
             }
         };
     }
-   
+  
+    // 🆕 Handle Facebook domains
+    if (hostname.includes('facebook.')) {
+        return {
+            name: 'Facebook',
+            styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Facebook_style.css',
+            fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Facebook_style.css',
+            styleID: 'facebook-enhanced-styles',
+            needsReadyCheck: true,
+            readySelector: 'body, #facebook, [role="main"], [data-pagelet], ._2s1x',
+            aggressiveReapply: true,
+            isFacebook: true,
+            pageSelectors: {
+                'home': '[data-pagelet="root"]',
+                'profile': '[data-pagelet="ProfileTimeline"]',
+                'messages': '[data-pagelet="MessagingWindow"]',
+                'notifications': '[data-pagelet="NotificationsFlyout"]',
+                'watch': '[data-pagelet="VideoHomePage"]',
+                'marketplace': '[data-pagelet="MarketplacePage"]',
+                'groups': '[data-pagelet="GroupsPage"]'
+            }
+        };
+    }
+  
     return null;
 }
 
@@ -181,10 +227,10 @@ const state = {
 // 🔍 Browser detection
 (function detectCapabilities() {
     state.hasGrants = typeof GM_xmlhttpRequest !== 'undefined';
-  
+ 
     const userAgent = navigator.userAgent.toLowerCase();
     state.isBerryBrowser = !state.hasGrants && /android/.test(userAgent);
-  
+ 
     if (state.isBerryBrowser) {
         console.log('🍓 Berry Browser detected - using fallback methods');
         CONFIG.DEBUG_MODE = true;
@@ -195,7 +241,7 @@ const state = {
 const utils = {
     log(message, level = 'info') {
         if (!CONFIG.DEBUG_MODE && level === 'debug') return;
-      
+     
         const emoji = {
             'info': 'ℹ️',
             'success': '✅',
@@ -204,18 +250,20 @@ const utils = {
             'warning': '⚠️',
             'berry': '🍓',
             'google': '🔍',
-            'github': '🐙'
+            'github': '🐙',
+            'facebook': '👤'
         }[level] || 'ℹ️';
-      
+     
         const prefix = state.isBerryBrowser ? `${emoji}🍓` : emoji;
-        
+       
         let siteIcon = '🎨';
         if (state.site.isGoogle) siteIcon = '🔍';
         if (state.site.isGitHub) siteIcon = '🐙';
-        
+        if (state.site.isFacebook) siteIcon = '👤';
+       
         console.log(`${prefix}${siteIcon} [${currentSite.name}] ${message}`);
     },
-  
+ 
     throttle(func, delay) {
         let timeoutId;
         let lastExecTime = 0;
@@ -238,7 +286,7 @@ const utils = {
             }
         };
     },
-  
+ 
     getValue(key, defaultValue) {
         try {
             const item = localStorage.getItem(key);
@@ -247,7 +295,7 @@ const utils = {
             return defaultValue;
         }
     },
-  
+ 
     setValue(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
@@ -256,30 +304,30 @@ const utils = {
             return false;
         }
     },
-  
+ 
     getCachedCSS() {
         const cacheKey = CONFIG.CACHE_KEY_PREFIX + state.site.name;
         const cacheData = this.getValue(cacheKey, null);
-  
+ 
         if (!cacheData) return null;
-  
+ 
         const { css, timestamp, url } = cacheData;
         const now = Date.now();
-  
+ 
         if (url !== state.site.styleURL) {
             this.log('CSS URL changed, invalidating cache', 'debug');
             return null;
         }
-  
+ 
         if (now - timestamp > CONFIG.CACHE_DURATION) {
             this.log('Cache expired', 'debug');
             return null;
         }
-  
+ 
         this.log(`Using cached CSS (${Math.round((now - timestamp)/60000)}min old)`, 'debug');
         return css;
     },
-  
+ 
     setCachedCSS(css) {
         const cacheKey = CONFIG.CACHE_KEY_PREFIX + state.site.name;
         const cacheData = {
@@ -289,17 +337,17 @@ const utils = {
         };
         return this.setValue(cacheKey, cacheData);
     },
-  
+ 
     clearCache() {
         const keys = Object.keys(localStorage).filter(k => k.startsWith(CONFIG.CACHE_KEY_PREFIX));
         keys.forEach(k => localStorage.removeItem(k));
         this.log(`Cleared ${keys.length} cache entries`, 'success');
         return keys.length;
     },
-  
+ 
     async waitForElement(selector, timeout = 10000) {
         const startTime = Date.now();
-  
+ 
         while (Date.now() - startTime < timeout) {
             const element = document.querySelector(selector);
             if (element) {
@@ -307,54 +355,54 @@ const utils = {
             }
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-  
+ 
         return null;
     },
-  
+ 
     async waitForPageReady() {
         if (!state.site.needsReadyCheck) {
             return true;
         }
 
         this.log('Waiting for page to be ready...', 'debug');
-       
+      
         if (state.site.isGoogle) {
             for (const selector of state.site.searchSelectors) {
                 const element = await this.waitForElement(selector, 5000);
                 if (element) {
                     this.log('Google search page is ready', 'success');
-                   
+                  
                     if (state.isBerryBrowser) {
                         this.log('Applying Google Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GOOGLE_DELAY));
                     }
-                   
+                  
                     return true;
                 }
             }
             this.log('Google search elements not found, continuing anyway', 'warning');
             return true;
         }
-        
-        // 🆕 GitHub handling
+       
+        // GitHub handling
         if (state.site.isGitHub) {
             this.log('Detecting GitHub page type...', 'debug');
-            
+           
             for (const selector of state.site.readySelector.split(', ')) {
                 const element = await this.waitForElement(selector, 7000);
                 if (element) {
                     this.log(`GitHub ${selector} found`, 'debug');
-                    
+                   
                     if (state.isBerryBrowser) {
                         this.log('Applying GitHub Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GITHUB_DELAY));
                     }
-                    
+                   
                     await new Promise(resolve => setTimeout(resolve, 500));
                     return true;
                 }
             }
-            
+           
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -362,24 +410,63 @@ const utils = {
                     return true;
                 }
             }
-            
+           
             this.log('GitHub page ready check timed out, continuing anyway', 'warning');
             return true;
         }
 
+        // 🆕 Facebook handling
+        if (state.site.isFacebook) {
+            this.log('Waiting for Facebook page to be ready...', 'debug');
+            
+            const facebookSelectors = [
+                '#facebook',
+                '[role="main"]',
+                '[data-pagelet]',
+                '._2s1x',
+                'div[class*="x1iyjqo2"]'
+            ];
+            
+            for (const selector of facebookSelectors) {
+                const element = await this.waitForElement(selector, 8000);
+                if (element) {
+                    this.log(`Facebook element found: ${selector}`, 'debug');
+                    
+                    if (state.isBerryBrowser) {
+                        this.log('Applying Facebook Berry Browser delay...', 'debug');
+                        await new Promise(resolve => setTimeout(resolve, CONFIG.FACEBOOK_DELAY));
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return true;
+                }
+            }
+            
+            for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    this.log(`Found Facebook ${pageType} page`, 'success');
+                    return true;
+                }
+            }
+            
+            this.log('Facebook page ready check timed out, continuing anyway', 'warning');
+            return true;
+        }
+
         const element = await this.waitForElement(state.site.readySelector, 10000);
-  
+ 
         if (element) {
             this.log('Page is ready', 'success');
-      
+     
             if (state.isBerryBrowser && state.site.name === 'ChatGPT') {
                 this.log('Applying ChatGPT Berry Browser delay...', 'debug');
                 await new Promise(resolve => setTimeout(resolve, CONFIG.BERRY_INITIAL_DELAY));
             }
-      
+     
             return true;
         }
-  
+ 
         this.log('Page ready check timed out, continuing anyway', 'warning');
         return false;
     }
@@ -389,7 +476,7 @@ const utils = {
 const cssLoader = {
     async fetchExternalCSS() {
         state.fetchAttempts++;
-      
+     
         const cachedCSS = utils.getCachedCSS();
         if (cachedCSS) {
             state.cssContent = cachedCSS;
@@ -398,7 +485,7 @@ const cssLoader = {
 
         utils.log(`Fetch attempt #${state.fetchAttempts}`, 'info');
         utils.log(`Primary URL: ${state.site.styleURL}`, 'debug');
-      
+     
         if (state.hasGrants) {
             try {
                 const css = await this.fetchViaGM();
@@ -409,7 +496,7 @@ const cssLoader = {
                 utils.log(`GM fetch failed: ${error.message}`, 'error');
             }
         }
-      
+     
         if (state.isBerryBrowser) {
             try {
                 const css = await this.fetchForBerryBrowser();
@@ -422,7 +509,7 @@ const cssLoader = {
                 utils.log(`Berry fetch failed: ${berryError.message}`, 'error');
             }
         }
-      
+     
         try {
             const css = await this.fetchDirect();
             utils.setCachedCSS(css);
@@ -430,7 +517,7 @@ const cssLoader = {
             return css;
         } catch (directError) {
             utils.log(`Direct fetch failed: ${directError.message}`, 'debug');
-          
+         
             try {
                 const css = await this.fetchViaCORSProxy();
                 utils.setCachedCSS(css);
@@ -442,7 +529,7 @@ const cssLoader = {
             }
         }
     },
-  
+ 
     fetchViaGM() {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -471,55 +558,55 @@ const cssLoader = {
             });
         });
     },
-  
+ 
     async fetchDirect() {
         utils.log('Trying direct fetch...', 'debug');
-      
+     
         const response = await fetch(state.site.styleURL, {
             method: 'GET',
             headers: { 'Accept': 'text/css,*/*' },
             mode: 'cors',
             cache: 'no-store'
         });
-      
+     
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-      
+     
         const css = await response.text();
-      
+     
         if (!css || css.trim().length === 0) {
             throw new Error('Empty CSS response');
         }
-      
+     
         utils.log(`Fetched ${css.length} chars directly`, 'success');
         return css;
     },
-  
+ 
     async fetchForBerryBrowser() {
         utils.log('Berry: Starting optimized fetch...', 'berry');
-      
+     
         const strategies = [
             { url: state.site.styleURL, mode: 'no-cors', desc: 'jsDelivr no-cors' },
             { url: state.site.styleURL, mode: 'cors', desc: 'jsDelivr cors' },
             { url: state.site.fallbackURL, mode: 'no-cors', desc: 'GitHub no-cors' },
             { url: state.site.fallbackURL, mode: 'cors', desc: 'GitHub cors' }
         ];
-      
+     
         for (const strategy of strategies) {
             if (!strategy.url) continue;
-          
+         
             utils.log(`Berry: Trying ${strategy.desc}...`, 'debug');
-          
+         
             try {
                 const response = await fetch(strategy.url, {
                     method: 'GET',
                     mode: strategy.mode,
                     cache: 'no-store'
                 });
-              
+             
                 const css = await response.text();
-              
+             
                 if (css && css.trim().length > 10) {
                     utils.log(`Berry (${strategy.desc}): Got ${css.length} chars`, 'success');
                     return css;
@@ -529,34 +616,34 @@ const cssLoader = {
                 continue;
             }
         }
-      
+     
         throw new Error('All Berry strategies failed');
     },
-  
+ 
     async fetchViaCORSProxy() {
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(state.site.styleURL)}`,
             `https://corsproxy.io/?${encodeURIComponent(state.site.styleURL)}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(state.site.styleURL)}`
         ];
-      
+     
         for (let i = 0; i < proxies.length; i++) {
             const proxyUrl = proxies[i];
             try {
                 utils.log(`Trying proxy ${i + 1}/${proxies.length}`, 'debug');
-              
+             
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
                     headers: { 'Accept': 'text/css,*/*' },
                     cache: 'no-store'
                 });
-              
+             
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-              
+             
                 const css = await response.text();
-              
+             
                 if (css && css.trim().length > 0) {
                     utils.log(`Fetched ${css.length} chars via proxy`, 'success');
                     return css;
@@ -569,7 +656,7 @@ const cssLoader = {
                 continue;
             }
         }
-      
+     
         throw new Error('All proxies failed');
     }
 };
@@ -593,7 +680,7 @@ const styleManager = {
 
         try {
             await utils.waitForPageReady();
-      
+     
             if (!state.cssContent) {
                 utils.log('Fetching CSS...', 'info');
                 await cssLoader.fetchExternalCSS();
@@ -609,49 +696,49 @@ const styleManager = {
                 state.isLoading = false;
                 return true;
             }
-          
+         
             if (await this.injectViaBlob()) {
                 state.appliedMethod = 'blob-link';
                 utils.log('✅ Styles applied via blob link', 'success');
                 state.isLoading = false;
                 return true;
             }
-      
+     
             throw new Error('All injection methods failed');
-      
+     
         } catch (error) {
             utils.log(`Failed to apply styles: ${error.message}`, 'error');
             state.isLoading = false;
             return false;
         }
     },
-  
+ 
     async injectViaBlob() {
         if (!document.head) return false;
-  
+ 
         const blob = new Blob([state.cssContent], { type: 'text/css' });
         const blobUrl = URL.createObjectURL(blob);
-  
+ 
         const link = document.createElement('link');
         link.id = state.site.styleID;
         link.rel = 'stylesheet';
         link.type = 'text/css';
         link.href = blobUrl;
-  
+ 
         return new Promise((resolve) => {
             link.onload = () => {
                 state.styleElement = link;
                 resolve(true);
             };
-      
+     
             link.onerror = () => {
                 link.remove();
                 URL.revokeObjectURL(blobUrl);
                 resolve(false);
             };
-      
+     
             document.head.appendChild(link);
-      
+     
             setTimeout(() => {
                 if (link.sheet) {
                     state.styleElement = link;
@@ -662,15 +749,15 @@ const styleManager = {
             }, 1000);
         });
     },
-  
+ 
     injectViaStyle() {
         if (!document.head) return false;
-  
+ 
         const style = document.createElement('style');
         style.id = state.site.styleID;
         style.type = 'text/css';
         style.textContent = state.cssContent;
-  
+ 
         try {
             document.head.appendChild(style);
             state.styleElement = style;
@@ -679,7 +766,7 @@ const styleManager = {
             return false;
         }
     },
-  
+ 
     remove() {
         const existingStyle = document.getElementById(state.site.styleID);
         if (existingStyle) {
@@ -688,15 +775,15 @@ const styleManager = {
             }
             existingStyle.remove();
         }
-  
+ 
         state.styleElement = null;
         utils.log('Styles removed', 'debug');
     },
-  
+ 
     isApplied() {
         return !!document.getElementById(state.site.styleID);
     },
-  
+ 
     async forceReapply() {
         if (state.enabled && !this.isApplied()) {
             utils.log('Force reapplying styles', 'debug');
@@ -705,7 +792,7 @@ const styleManager = {
     }
 };
 
-// 👁️ Observer manager (keep original)
+// 👁️ Observer manager (with Facebook enhancements)
 const observerManager = {
     setup() {
         this.cleanup();
@@ -716,10 +803,10 @@ const observerManager = {
         } else {
             this.createStandardObserver();
         }
-   
+  
         utils.log('Observer started', 'debug');
     },
-   
+  
     createStandardObserver() {
         const throttledReapply = utils.throttle(() => {
             styleManager.forceReapply();
@@ -728,12 +815,30 @@ const observerManager = {
         state.observer = new MutationObserver(mutations => {
             let shouldReapply = false;
 
-            for (const mutation of mutations) {
-                if (mutation.removedNodes.length > 0) {
-                    for (const node of mutation.removedNodes) {
-                        if (node.id === state.site.styleID) {
-                            shouldReapply = true;
-                            break;
+            // Special handling for Facebook's React updates
+            if (state.site.isFacebook) {
+                for (const mutation of mutations) {
+                    if (mutation.removedNodes.length > 0) {
+                        for (const node of mutation.removedNodes) {
+                            if (node.id === state.site.styleID) {
+                                shouldReapply = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (mutation.target && mutation.target.id === 'facebook') {
+                        shouldReapply = true;
+                    }
+                }
+            } else {
+                for (const mutation of mutations) {
+                    if (mutation.removedNodes.length > 0) {
+                        for (const node of mutation.removedNodes) {
+                            if (node.id === state.site.styleID) {
+                                shouldReapply = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -744,36 +849,42 @@ const observerManager = {
             }
         });
 
-        state.observer.observe(document.head, {
+        const observeTarget = state.site.isFacebook ? document.body : document.head;
+        const observeOptions = state.site.isFacebook ? {
+            childList: true,
+            subtree: true
+        } : {
             childList: true,
             subtree: false
-        });
+        };
+
+        state.observer.observe(observeTarget, observeOptions);
     },
-   
+  
     createAggressiveObserver() {
         let checkCount = 0;
         const maxChecks = 50;
-   
+  
         const checkAndReapply = async () => {
             if (checkCount++ > maxChecks) {
                 clearInterval(intervalId);
                 utils.log('Aggressive observer stopped', 'debug');
                 return;
             }
-       
+      
             if (!styleManager.isApplied() && state.enabled) {
                 utils.log('Style missing, reapplying...', 'debug');
                 await styleManager.forceReapply();
             }
         };
-   
+  
         const intervalId = setInterval(checkAndReapply, 2000);
-   
+  
         state.observer = {
             disconnect: () => clearInterval(intervalId)
         };
     },
-   
+  
     cleanup() {
         if (state.observer) {
             if (state.observer.disconnect) {
@@ -789,7 +900,7 @@ const uiManager = {
     setup() {
         this.createFloatingButton();
     },
-  
+ 
     createFloatingButton() {
         const button = document.createElement('div');
         button.id = 'ai-styler-btn';
@@ -813,15 +924,15 @@ const uiManager = {
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         `;
-  
+ 
         this.updateButtonState(button);
-  
+ 
         button.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
             this.toggleStyles();
         });
-  
+ 
         if (state.isBerryBrowser) {
             let longPressTimer;
             button.addEventListener('touchstart', (e) => {
@@ -829,12 +940,12 @@ const uiManager = {
                     this.showDebugInfo();
                 }, 1500);
             });
-          
+         
             button.addEventListener('touchend', () => {
                 clearTimeout(longPressTimer);
             });
         }
-  
+ 
         const addButton = () => {
             if (document.body) {
                 document.body.appendChild(button);
@@ -844,49 +955,55 @@ const uiManager = {
         };
         addButton();
     },
-  
+ 
     updateButtonState(button) {
         if (!button) button = document.getElementById('ai-styler-btn');
         if (!button) return;
-  
+ 
         let icon;
         if (state.site.isGoogle) {
             icon = state.enabled ? '🔍' : '🔎';
         } else if (state.site.isGitHub) {
             icon = state.enabled ? '🐙' : '⚫';
+        } else if (state.site.isFacebook) {
+            icon = state.enabled ? '👤' : '🙈';
         } else {
             icon = state.enabled ? '🎨' : '🚫';
         }
-   
+  
         button.innerHTML = icon;
         button.style.opacity = state.enabled ? '1' : '0.6';
         button.title = `${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`;
-        
+       
         // Set background based on site
         if (state.site.isGitHub) {
-            button.style.background = state.enabled 
+            button.style.background = state.enabled
                 ? 'linear-gradient(135deg, #24292e 0%, #2dba4e 100%)'
                 : 'linear-gradient(135deg, #666 0%, #999 100%)';
         } else if (state.site.isGoogle) {
-            button.style.background = state.enabled 
+            button.style.background = state.enabled
                 ? 'linear-gradient(135deg, #4285f4 0%, #34a853 100%)'
                 : 'linear-gradient(135deg, #666 0%, #999 100%)';
+        } else if (state.site.isFacebook) {
+            button.style.background = state.enabled
+                ? 'linear-gradient(135deg, #1877F2 0%, #0d8bf0 100%)'
+                : 'linear-gradient(135deg, #666 0%, #999 100%)';
         } else {
-            button.style.background = state.enabled 
+            button.style.background = state.enabled
                 ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                 : 'linear-gradient(135deg, #666 0%, #999 100%)';
         }
-  
+ 
         if (state.isLoading) {
             button.style.animation = 'pulse 1.5s infinite';
         } else {
             button.style.animation = 'none';
         }
     },
-  
+ 
     toggleStyles() {
         state.enabled = !state.enabled;
-      
+     
         if (state.enabled) {
             styleManager.apply();
             observerManager.setup();
@@ -894,11 +1011,11 @@ const uiManager = {
             styleManager.remove();
             observerManager.cleanup();
         }
-      
+     
         this.updateButtonState();
         this.showToast(`${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`);
     },
-  
+ 
     showDebugInfo() {
         const info = `
 🍓 Berry Browser Debug Info:
@@ -911,11 +1028,11 @@ Applied Method: ${state.appliedMethod || 'None'}
 Style Applied: ${styleManager.isApplied()}
 User Agent: ${navigator.userAgent}
         `.trim();
-      
+     
         console.log(info);
         this.showToast('Debug info logged to console');
     },
-  
+ 
     showToast(message) {
         const toast = document.createElement('div');
         toast.style.cssText = `
@@ -933,9 +1050,9 @@ User Agent: ${navigator.userAgent}
             max-width: 300px;
             word-wrap: break-word;
         `;
-  
+ 
         toast.textContent = message;
-  
+ 
         if (document.body) {
             document.body.appendChild(toast);
             setTimeout(() => {
@@ -953,12 +1070,12 @@ const navigationManager = {
         window.addEventListener('popstate', this.handleURLChange);
         window.addEventListener('hashchange', this.handleURLChange);
     },
-  
+ 
     handleURLChange: utils.throttle(() => {
         if (location.href !== state.currentURL) {
             state.currentURL = location.href;
             utils.log(`URL changed: ${state.currentURL}`, 'debug');
-      
+     
             if (state.enabled) {
                 setTimeout(() => styleManager.forceReapply(), 300);
             }
@@ -969,11 +1086,11 @@ const navigationManager = {
 // 🚀 Main application
 const app = {
     async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v3.3`, 'info');
+        utils.log(`🚀 Initializing ${state.site.name} Styler v3.4`, 'info');
         utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard'}`, 'info');
-  
+ 
         this.addPulseAnimation();
-  
+ 
         let initialDelay = state.isBerryBrowser ? 2000 : 500;
         if (state.site.isGoogle && state.isBerryBrowser) {
             initialDelay = CONFIG.GOOGLE_DELAY;
@@ -981,25 +1098,28 @@ const app = {
         if (state.site.isGitHub && state.isBerryBrowser) {
             initialDelay = CONFIG.GITHUB_DELAY;
         }
-  
+        if (state.site.isFacebook && state.isBerryBrowser) {
+            initialDelay = CONFIG.FACEBOOK_DELAY;
+        }
+ 
         setTimeout(async () => {
             await this.applyWithRetry();
             observerManager.setup();
             uiManager.setup();
             navigationManager.init();
             this.setupEventListeners();
-      
+     
             utils.log(`Initialization complete. Status: ${state.enabled ? 'ENABLED ✅' : 'DISABLED ❌'}`, 'success');
         }, initialDelay);
     },
-  
+ 
     async applyWithRetry() {
         if (!state.enabled) return;
 
         for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
             try {
                 utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
-          
+         
                 if (await styleManager.apply()) {
                     utils.log('Styles successfully applied!', 'success');
                     return;
@@ -1012,10 +1132,10 @@ const app = {
                 await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
             }
         }
-  
+ 
         utils.log('Max retries reached', 'warning');
     },
-  
+ 
     setupEventListeners() {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && state.enabled) {
@@ -1033,10 +1153,10 @@ const app = {
             observerManager.cleanup();
         });
     },
-  
+ 
     addPulseAnimation() {
         if (!document.head) return;
-      
+     
         const style = document.createElement('style');
         style.textContent = `
             @keyframes pulse {
