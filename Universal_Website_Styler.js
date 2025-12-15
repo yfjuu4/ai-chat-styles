@@ -13,6 +13,7 @@
 // @match        https://www.facebook.com/*
 // @match        https://facebook.com/*
 // @match        https://*.facebook.com/*
+// @match        https://m.facebook.com/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
