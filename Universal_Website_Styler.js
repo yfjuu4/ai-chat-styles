@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Universal AI Chat Styler (Berry Browser Compatible)
 // @namespace    http://yourdomain.example
-// @version      3.5
-// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, GitHub, Facebook, and Twitter/X via jsDelivr - Berry Browser Optimized
+// @version      3.6
+// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, GitHub, Facebook, Twitter/X, and Stack Overflow via jsDelivr - Berry Browser Optimized
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
 // @match        https://www.google.com/*
@@ -17,6 +17,8 @@
 // @match        https://*.x.com/*
 // @match        https://twitter.com/*
 // @match        https://*.twitter.com/*
+// @match        https://stackoverflow.com/*
+// @match        https://*.stackoverflow.com/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
@@ -38,7 +40,8 @@ const CONFIG = {
     GOOGLE_DELAY: 2000,
     GITHUB_DELAY: 1500,
     FACEBOOK_DELAY: 2500,
-    TWITTER_DELAY: 1800  // 🆕 Twitter/X delay
+    TWITTER_DELAY: 1800,
+    STACKOVERFLOW_DELAY: 1200  // 🆕 Stack Overflow delay
 };
 
 // 🎨 Site configuration with jsDelivr URLs
@@ -121,7 +124,6 @@ const SITES = {
             'groups': '[data-pagelet="GroupsPage"]'
         }
     },
-    // 🆕 Twitter/X configuration
     'x.com': {
         name: 'Twitter/X',
         styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/twitter%20style.css',
@@ -140,6 +142,27 @@ const SITES = {
             'search': '[data-testid="searchFilters"]',
             'lists': '[data-testid="lists"]'
         }
+    },
+    // 🆕 Stack Overflow configuration
+    'stackoverflow.com': {
+        name: 'Stack Overflow',
+        styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Stack%20Overflow%20style.css',
+        fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Stack%20Overflow%20style.css',
+        styleID: 'stackoverflow-enhanced-styles',
+        needsReadyCheck: true,
+        readySelector: 'body, #content, .container, .s-topbar, .js-search-input',
+        aggressiveReapply: true,
+        isStackOverflow: true,
+        pageSelectors: {
+            'questions': '#questions',
+            'question': '.question',
+            'answers': '#answers',
+            'ask': '.ask-page',
+            'users': '.user-page',
+            'tags': '.tags-page',
+            'jobs': '.jobs-page',
+            'search': '.search-results'
+        }
     }
 };
 
@@ -147,19 +170,19 @@ const SITES = {
 function detectCurrentSite() {
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
- 
+
     // Direct domain match
     if (SITES[hostname]) {
         return SITES[hostname];
     }
- 
+
     // Handle all Google domains
     if (hostname.includes('google.')) {
         const isSearchPage = pathname === '/search' ||
                             pathname === '/' ||
                             document.querySelector('input[name="q"]') ||
                             document.querySelector('form[action*="/search"]');
-     
+    
         if (isSearchPage) {
             return {
                 name: 'Google Search',
@@ -174,7 +197,7 @@ function detectCurrentSite() {
             };
         }
     }
- 
+
     // Handle GitHub domains
     if (hostname.includes('github.')) {
         return {
@@ -197,7 +220,7 @@ function detectCurrentSite() {
             }
         };
     }
- 
+
     // Handle Facebook domains
     if (hostname.includes('facebook.')) {
         return {
@@ -220,8 +243,8 @@ function detectCurrentSite() {
             }
         };
     }
- 
-    // 🆕 Handle Twitter/X domains
+
+    // Handle Twitter/X domains
     if (hostname.includes('x.com') || hostname.includes('twitter.com')) {
         return {
             name: 'Twitter/X',
@@ -243,7 +266,31 @@ function detectCurrentSite() {
             }
         };
     }
- 
+
+    // 🆕 Handle Stack Overflow domains
+    if (hostname.includes('stackoverflow.')) {
+        return {
+            name: 'Stack Overflow',
+            styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/Stack%20Overflow%20style.css',
+            fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/Stack%20Overflow%20style.css',
+            styleID: 'stackoverflow-enhanced-styles',
+            needsReadyCheck: true,
+            readySelector: 'body, #content, .container, .s-topbar, .js-search-input',
+            aggressiveReapply: true,
+            isStackOverflow: true,
+            pageSelectors: {
+                'questions': '#questions',
+                'question': '.question',
+                'answers': '#answers',
+                'ask': '.ask-page',
+                'users': '.user-page',
+                'tags': '.tags-page',
+                'jobs': '.jobs-page',
+                'search': '.search-results'
+            }
+        };
+    }
+
     return null;
 }
 
@@ -288,7 +335,7 @@ const state = {
 const utils = {
     log(message, level = 'info') {
         if (!CONFIG.DEBUG_MODE && level === 'debug') return;
-    
+   
         const emoji = {
             'info': 'ℹ️',
             'success': '✅',
@@ -299,17 +346,19 @@ const utils = {
             'google': '🔍',
             'github': '🐙',
             'facebook': '👤',
-            'twitter': '🐦'
+            'twitter': '🐦',
+            'stackoverflow': '💻'
         }[level] || 'ℹ️';
-    
+   
         const prefix = state.isBerryBrowser ? `${emoji}🍓` : emoji;
-      
+     
         let siteIcon = '🎨';
         if (state.site.isGoogle) siteIcon = '🔍';
         if (state.site.isGitHub) siteIcon = '🐙';
         if (state.site.isFacebook) siteIcon = '👤';
         if (state.site.isTwitter) siteIcon = '🐦';
-      
+        if (state.site.isStackOverflow) siteIcon = '💻';
+     
         console.log(`${prefix}${siteIcon} [${currentSite.name}] ${message}`);
     },
 
@@ -414,44 +463,44 @@ const utils = {
         }
 
         this.log('Waiting for page to be ready...', 'debug');
-     
+    
         if (state.site.isGoogle) {
             for (const selector of state.site.searchSelectors) {
                 const element = await this.waitForElement(selector, 5000);
                 if (element) {
                     this.log('Google search page is ready', 'success');
-                 
+                
                     if (state.isBerryBrowser) {
                         this.log('Applying Google Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GOOGLE_DELAY));
                     }
-                 
+                
                     return true;
                 }
             }
             this.log('Google search elements not found, continuing anyway', 'warning');
             return true;
         }
-      
+     
         // GitHub handling
         if (state.site.isGitHub) {
             this.log('Detecting GitHub page type...', 'debug');
-          
+         
             for (const selector of state.site.readySelector.split(', ')) {
                 const element = await this.waitForElement(selector, 7000);
                 if (element) {
                     this.log(`GitHub ${selector} found`, 'debug');
-                  
+                 
                     if (state.isBerryBrowser) {
                         this.log('Applying GitHub Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GITHUB_DELAY));
                     }
-                  
+                 
                     await new Promise(resolve => setTimeout(resolve, 500));
                     return true;
                 }
             }
-          
+         
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -459,7 +508,7 @@ const utils = {
                     return true;
                 }
             }
-          
+         
             this.log('GitHub page ready check timed out, continuing anyway', 'warning');
             return true;
         }
@@ -467,7 +516,7 @@ const utils = {
         // Facebook handling
         if (state.site.isFacebook) {
             this.log('Waiting for Facebook page to be ready...', 'debug');
-           
+          
             const facebookSelectors = [
                 '#facebook',
                 '[role="main"]',
@@ -475,22 +524,22 @@ const utils = {
                 '._2s1x',
                 'div[class*="x1iyjqo2"]'
             ];
-           
+          
             for (const selector of facebookSelectors) {
                 const element = await this.waitForElement(selector, 8000);
                 if (element) {
                     this.log(`Facebook element found: ${selector}`, 'debug');
-                   
+                  
                     if (state.isBerryBrowser) {
                         this.log('Applying Facebook Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.FACEBOOK_DELAY));
                     }
-                   
+                  
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     return true;
                 }
             }
-           
+          
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -498,15 +547,15 @@ const utils = {
                     return true;
                 }
             }
-           
+          
             this.log('Facebook page ready check timed out, continuing anyway', 'warning');
             return true;
         }
 
-        // 🆕 Twitter/X handling
+        // Twitter/X handling
         if (state.site.isTwitter) {
             this.log('Waiting for Twitter/X page to be ready...', 'debug');
-            
+           
             const twitterSelectors = [
                 '[data-testid="primaryColumn"]',
                 '[role="main"]',
@@ -514,22 +563,22 @@ const utils = {
                 '[data-testid="SideNav_AccountSwitcher_Button"]',
                 'article[data-testid="tweet"]'
             ];
-            
+           
             for (const selector of twitterSelectors) {
                 const element = await this.waitForElement(selector, 6000);
                 if (element) {
                     this.log(`Twitter/X element found: ${selector}`, 'debug');
-                    
+                   
                     if (state.isBerryBrowser) {
                         this.log('Applying Twitter/X Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.TWITTER_DELAY));
                     }
-                    
+                   
                     await new Promise(resolve => setTimeout(resolve, 700));
                     return true;
                 }
             }
-            
+           
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -537,8 +586,48 @@ const utils = {
                     return true;
                 }
             }
-            
+           
             this.log('Twitter/X page ready check timed out, continuing anyway', 'warning');
+            return true;
+        }
+
+        // 🆕 Stack Overflow handling
+        if (state.site.isStackOverflow) {
+            this.log('Waiting for Stack Overflow page to be ready...', 'debug');
+            
+            const stackOverflowSelectors = [
+                '#content',
+                '.container',
+                '.s-topbar',
+                '.js-search-input',
+                '#question-header',
+                '.question'
+            ];
+            
+            for (const selector of stackOverflowSelectors) {
+                const element = await this.waitForElement(selector, 6000);
+                if (element) {
+                    this.log(`Stack Overflow element found: ${selector}`, 'debug');
+                    
+                    if (state.isBerryBrowser) {
+                        this.log('Applying Stack Overflow Berry Browser delay...', 'debug');
+                        await new Promise(resolve => setTimeout(resolve, CONFIG.STACKOVERFLOW_DELAY));
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    return true;
+                }
+            }
+            
+            for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    this.log(`Found Stack Overflow ${pageType} page`, 'success');
+                    return true;
+                }
+            }
+            
+            this.log('Stack Overflow page ready check timed out, continuing anyway', 'warning');
             return true;
         }
 
@@ -546,12 +635,12 @@ const utils = {
 
         if (element) {
             this.log('Page is ready', 'success');
-    
+   
             if (state.isBerryBrowser && state.site.name === 'ChatGPT') {
                 this.log('Applying ChatGPT Berry Browser delay...', 'debug');
                 await new Promise(resolve => setTimeout(resolve, CONFIG.BERRY_INITIAL_DELAY));
             }
-    
+   
             return true;
         }
 
@@ -564,7 +653,7 @@ const utils = {
 const cssLoader = {
     async fetchExternalCSS() {
         state.fetchAttempts++;
-    
+   
         const cachedCSS = utils.getCachedCSS();
         if (cachedCSS) {
             state.cssContent = cachedCSS;
@@ -573,7 +662,7 @@ const cssLoader = {
 
         utils.log(`Fetch attempt #${state.fetchAttempts}`, 'info');
         utils.log(`Primary URL: ${state.site.styleURL}`, 'debug');
-    
+   
         if (state.hasGrants) {
             try {
                 const css = await this.fetchViaGM();
@@ -584,7 +673,7 @@ const cssLoader = {
                 utils.log(`GM fetch failed: ${error.message}`, 'error');
             }
         }
-    
+   
         if (state.isBerryBrowser) {
             try {
                 const css = await this.fetchForBerryBrowser();
@@ -597,7 +686,7 @@ const cssLoader = {
                 utils.log(`Berry fetch failed: ${berryError.message}`, 'error');
             }
         }
-    
+   
         try {
             const css = await this.fetchDirect();
             utils.setCachedCSS(css);
@@ -605,7 +694,7 @@ const cssLoader = {
             return css;
         } catch (directError) {
             utils.log(`Direct fetch failed: ${directError.message}`, 'debug');
-        
+       
             try {
                 const css = await this.fetchViaCORSProxy();
                 utils.setCachedCSS(css);
@@ -649,52 +738,52 @@ const cssLoader = {
 
     async fetchDirect() {
         utils.log('Trying direct fetch...', 'debug');
-    
+   
         const response = await fetch(state.site.styleURL, {
             method: 'GET',
             headers: { 'Accept': 'text/css,*/*' },
             mode: 'cors',
             cache: 'no-store'
         });
-    
+   
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
-    
+   
         const css = await response.text();
-    
+   
         if (!css || css.trim().length === 0) {
             throw new Error('Empty CSS response');
         }
-    
+   
         utils.log(`Fetched ${css.length} chars directly`, 'success');
         return css;
     },
 
     async fetchForBerryBrowser() {
         utils.log('Berry: Starting optimized fetch...', 'berry');
-    
+   
         const strategies = [
             { url: state.site.styleURL, mode: 'no-cors', desc: 'jsDelivr no-cors' },
             { url: state.site.styleURL, mode: 'cors', desc: 'jsDelivr cors' },
             { url: state.site.fallbackURL, mode: 'no-cors', desc: 'GitHub no-cors' },
             { url: state.site.fallbackURL, mode: 'cors', desc: 'GitHub cors' }
         ];
-    
+   
         for (const strategy of strategies) {
             if (!strategy.url) continue;
-        
+       
             utils.log(`Berry: Trying ${strategy.desc}...`, 'debug');
-        
+       
             try {
                 const response = await fetch(strategy.url, {
                     method: 'GET',
                     mode: strategy.mode,
                     cache: 'no-store'
                 });
-            
+           
                 const css = await response.text();
-            
+           
                 if (css && css.trim().length > 10) {
                     utils.log(`Berry (${strategy.desc}): Got ${css.length} chars`, 'success');
                     return css;
@@ -704,7 +793,7 @@ const cssLoader = {
                 continue;
             }
         }
-    
+   
         throw new Error('All Berry strategies failed');
     },
 
@@ -714,24 +803,24 @@ const cssLoader = {
             `https://corsproxy.io/?${encodeURIComponent(state.site.styleURL)}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(state.site.styleURL)}`
         ];
-    
+   
         for (let i = 0; i < proxies.length; i++) {
             const proxyUrl = proxies[i];
             try {
                 utils.log(`Trying proxy ${i + 1}/${proxies.length}`, 'debug');
-            
+           
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
                     headers: { 'Accept': 'text/css,*/*' },
                     cache: 'no-store'
                 });
-            
+           
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-            
+           
                 const css = await response.text();
-            
+           
                 if (css && css.trim().length > 0) {
                     utils.log(`Fetched ${css.length} chars via proxy`, 'success');
                     return css;
@@ -744,7 +833,7 @@ const cssLoader = {
                 continue;
             }
         }
-    
+   
         throw new Error('All proxies failed');
     }
 };
@@ -768,7 +857,7 @@ const styleManager = {
 
         try {
             await utils.waitForPageReady();
-    
+   
             if (!state.cssContent) {
                 utils.log('Fetching CSS...', 'info');
                 await cssLoader.fetchExternalCSS();
@@ -784,16 +873,16 @@ const styleManager = {
                 state.isLoading = false;
                 return true;
             }
-        
+       
             if (await this.injectViaBlob()) {
                 state.appliedMethod = 'blob-link';
                 utils.log('✅ Styles applied via blob link', 'success');
                 state.isLoading = false;
                 return true;
             }
-    
+   
             throw new Error('All injection methods failed');
-    
+   
         } catch (error) {
             utils.log(`Failed to apply styles: ${error.message}`, 'error');
             state.isLoading = false;
@@ -818,15 +907,15 @@ const styleManager = {
                 state.styleElement = link;
                 resolve(true);
             };
-    
+   
             link.onerror = () => {
                 link.remove();
                 URL.revokeObjectURL(blobUrl);
                 resolve(false);
             };
-    
+   
             document.head.appendChild(link);
-    
+   
             setTimeout(() => {
                 if (link.sheet) {
                     state.styleElement = link;
@@ -891,10 +980,10 @@ const observerManager = {
         } else {
             this.createStandardObserver();
         }
- 
+
         utils.log('Observer started', 'debug');
     },
- 
+
     createStandardObserver() {
         const throttledReapply = utils.throttle(() => {
             styleManager.forceReapply();
@@ -914,7 +1003,7 @@ const observerManager = {
                             }
                         }
                     }
-                   
+                  
                     if (mutation.target && mutation.target.id === 'facebook') {
                         shouldReapply = true;
                     }
@@ -948,31 +1037,31 @@ const observerManager = {
 
         state.observer.observe(observeTarget, observeOptions);
     },
- 
+
     createAggressiveObserver() {
         let checkCount = 0;
         const maxChecks = 50;
- 
+
         const checkAndReapply = async () => {
             if (checkCount++ > maxChecks) {
                 clearInterval(intervalId);
                 utils.log('Aggressive observer stopped', 'debug');
                 return;
             }
-     
+    
             if (!styleManager.isApplied() && state.enabled) {
                 utils.log('Style missing, reapplying...', 'debug');
                 await styleManager.forceReapply();
             }
         };
- 
+
         const intervalId = setInterval(checkAndReapply, 2000);
- 
+
         state.observer = {
             disconnect: () => clearInterval(intervalId)
         };
     },
- 
+
     cleanup() {
         if (state.observer) {
             if (state.observer.disconnect) {
@@ -1028,7 +1117,7 @@ const uiManager = {
                     this.showDebugInfo();
                 }, 1500);
             });
-        
+       
             button.addEventListener('touchend', () => {
                 clearTimeout(longPressTimer);
             });
@@ -1057,14 +1146,16 @@ const uiManager = {
             icon = state.enabled ? '👤' : '🙈';
         } else if (state.site.isTwitter) {
             icon = state.enabled ? '🐦' : '🚫';
+        } else if (state.site.isStackOverflow) {
+            icon = state.enabled ? '💻' : '🖥️';
         } else {
             icon = state.enabled ? '🎨' : '🚫';
         }
- 
+
         button.innerHTML = icon;
         button.style.opacity = state.enabled ? '1' : '0.6';
         button.title = `${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`;
-      
+     
         // Set background based on site
         if (state.site.isGitHub) {
             button.style.background = state.enabled
@@ -1082,6 +1173,10 @@ const uiManager = {
             button.style.background = state.enabled
                 ? 'linear-gradient(135deg, #000000 0%, #1DA1F2 100%)'
                 : 'linear-gradient(135deg, #666 0%, #999 100%)';
+        } else if (state.site.isStackOverflow) {
+            button.style.background = state.enabled
+                ? 'linear-gradient(135deg, #F48024 0%, #BCBBBB 100%)'
+                : 'linear-gradient(135deg, #666 0%, #999 100%)';
         } else {
             button.style.background = state.enabled
                 ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
@@ -1097,7 +1192,7 @@ const uiManager = {
 
     toggleStyles() {
         state.enabled = !state.enabled;
-    
+   
         if (state.enabled) {
             styleManager.apply();
             observerManager.setup();
@@ -1105,7 +1200,7 @@ const uiManager = {
             styleManager.remove();
             observerManager.cleanup();
         }
-    
+   
         this.updateButtonState();
         this.showToast(`${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`);
     },
@@ -1122,7 +1217,7 @@ Applied Method: ${state.appliedMethod || 'None'}
 Style Applied: ${styleManager.isApplied()}
 User Agent: ${navigator.userAgent}
         `.trim();
-    
+   
         console.log(info);
         this.showToast('Debug info logged to console');
     },
@@ -1169,7 +1264,7 @@ const navigationManager = {
         if (location.href !== state.currentURL) {
             state.currentURL = location.href;
             utils.log(`URL changed: ${state.currentURL}`, 'debug');
-    
+   
             if (state.enabled) {
                 setTimeout(() => styleManager.forceReapply(), 300);
             }
@@ -1180,7 +1275,7 @@ const navigationManager = {
 // 🚀 Main application
 const app = {
     async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v3.5`, 'info');
+        utils.log(`🚀 Initializing ${state.site.name} Styler v3.6`, 'info');
         utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard'}`, 'info');
 
         this.addPulseAnimation();
@@ -1198,6 +1293,9 @@ const app = {
         if (state.site.isTwitter && state.isBerryBrowser) {
             initialDelay = CONFIG.TWITTER_DELAY;
         }
+        if (state.site.isStackOverflow && state.isBerryBrowser) {
+            initialDelay = CONFIG.STACKOVERFLOW_DELAY;
+        }
 
         setTimeout(async () => {
             await this.applyWithRetry();
@@ -1205,7 +1303,7 @@ const app = {
             uiManager.setup();
             navigationManager.init();
             this.setupEventListeners();
-    
+   
             utils.log(`Initialization complete. Status: ${state.enabled ? 'ENABLED ✅' : 'DISABLED ❌'}`, 'success');
         }, initialDelay);
     },
@@ -1216,7 +1314,7 @@ const app = {
         for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
             try {
                 utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
-        
+       
                 if (await styleManager.apply()) {
                     utils.log('Styles successfully applied!', 'success');
                     return;
@@ -1253,7 +1351,7 @@ const app = {
 
     addPulseAnimation() {
         if (!document.head) return;
-    
+   
         const style = document.createElement('style');
         style.textContent = `
             @keyframes pulse {
