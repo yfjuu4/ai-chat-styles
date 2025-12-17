@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Universal Site Styler (GitHub Source - Berry Browser)
+// @name         Universal Site Styler with Per-Site Control
 // @namespace    http://yourdomain.example
-// @version      5.0
-// @description  Load custom CSS from GitHub raw URLs only - Berry Browser Optimized
+// @version      5.1
+// @description  Load custom CSS from GitHub with per-site enable/disable control
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
 // @match        https://context.reverso.net/*
@@ -16,17 +16,20 @@
 // 🎯 Configuration
 const CONFIG = {
     DEBUG_MODE: true,
-    RETRY_DELAY: 500, // Increased for mobile networks
-    MAX_RETRIES: 15, // Reduced for battery optimization
+    RETRY_DELAY: 500,
+    MAX_RETRIES: 15,
     OBSERVER_THROTTLE: 500,
-    CACHE_DURATION: 6 * 60 * 60 * 1000, // 6 hours (shorter for GitHub updates)
+    CACHE_DURATION: 6 * 60 * 60 * 1000,
     CACHE_KEY_PREFIX: 'css_cache_',
     BERRY_INITIAL_DELAY: 4000,
     CHATGPT_READY_CHECK_INTERVAL: 200,
-    CHATGPT_MAX_READY_CHECKS: 30
+    CHATGPT_MAX_READY_CHECKS: 30,
+    
+    // 🆕 Per-site configuration defaults
+    SITE_SETTINGS_KEY: 'site_styler_settings_v2'
 };
 
-// 🎨 Site configuration - GitHub raw URLs only
+// 🎨 Site configuration with ENABLE/DISABLE control
 const SITES = {
     'chatgpt.com': {
         name: 'ChatGPT',
@@ -34,7 +37,8 @@ const SITES = {
         styleID: 'chatgpt-enhanced-styles',
         needsReadyCheck: true,
         readySelector: 'main, [class*="conversation"], #__next',
-        aggressiveReapply: true
+        aggressiveReapply: true,
+        enabledByDefault: true  // 🆕 Default state for this site
     },
     'claude.ai': {
         name: 'Claude AI',
@@ -42,7 +46,8 @@ const SITES = {
         styleID: 'claude-enhanced-styles',
         needsReadyCheck: false,
         readySelector: 'body',
-        aggressiveReapply: false
+        aggressiveReapply: false,
+        enabledByDefault: true  // 🆕 Default state for this site
     },
     'context.reverso.net': {
         name: 'Reverso Context',
@@ -50,7 +55,8 @@ const SITES = {
         styleID: 'reverso-context-enhanced-styles',
         needsReadyCheck: false,
         readySelector: 'body',
-        aggressiveReapply: false
+        aggressiveReapply: false,
+        enabledByDefault: true  // 🆕 Default state for this site
     }
 };
 
@@ -77,19 +83,18 @@ const state = {
     appliedMethod: null,
     lastApplyTime: 0,
     fetchAttempts: 0,
-    enabled: true
+    enabled: true  // Will be overridden by per-site settings
 };
 
 // 🔍 Browser detection
 (function detectCapabilities() {
     state.hasGrants = typeof GM_xmlhttpRequest !== 'undefined';
    
-    // Simple Berry Browser detection
     const userAgent = navigator.userAgent.toLowerCase();
     state.isBerryBrowser = !state.hasGrants && /android/.test(userAgent);
    
     if (state.isBerryBrowser) {
-        console.log('🍓 Berry Browser detected - using GitHub direct fetch');
+        console.log('🍓 Berry Browser detected');
         CONFIG.DEBUG_MODE = true;
     }
 })();
@@ -106,11 +111,85 @@ const utils = {
             'debug': '🔍',
             'warning': '⚠️',
             'berry': '🍓',
-            'github': '🐙'
+            'github': '🐙',
+            'config': '⚙️'
         }[level] || 'ℹ️';
        
         const prefix = state.isBerryBrowser ? `${emoji}🍓` : emoji;
         console.log(`${prefix} [${currentSite.name}] ${message}`);
+    },
+   
+    // 🆕 PER-SITE SETTINGS MANAGEMENT
+    getSiteSettings() {
+        try {
+            const settings = localStorage.getItem(CONFIG.SITE_SETTINGS_KEY);
+            return settings ? JSON.parse(settings) : {};
+        } catch (e) {
+            this.log('Failed to load site settings, using defaults', 'warning');
+            return {};
+        }
+    },
+   
+    saveSiteSettings(settings) {
+        try {
+            localStorage.setItem(CONFIG.SITE_SETTINGS_KEY, JSON.stringify(settings));
+            return true;
+        } catch (e) {
+            this.log('Failed to save site settings', 'error');
+            return false;
+        }
+    },
+   
+    // Get enabled state for current site
+    getSiteEnabledState() {
+        const settings = this.getSiteSettings();
+        const siteKey = currentDomain;
+        
+        // If we have a saved setting for this site, use it
+        if (settings[siteKey] !== undefined) {
+            this.log(`Using saved setting: ${settings[siteKey] ? 'ENABLED' : 'DISABLED'}`, 'config');
+            return settings[siteKey];
+        }
+        
+        // Otherwise use the default from SITES config
+        const defaultState = currentSite.enabledByDefault !== false; // Default to true if not specified
+        this.log(`Using default setting: ${defaultState ? 'ENABLED' : 'DISABLED'}`, 'config');
+        return defaultState;
+    },
+   
+    // Save enabled state for current site
+    saveSiteEnabledState(isEnabled) {
+        const settings = this.getSiteSettings();
+        settings[currentDomain] = isEnabled;
+        this.saveSiteSettings(settings);
+        this.log(`Saved site setting: ${isEnabled ? 'ENABLED' : 'DISABLED'}`, 'config');
+    },
+   
+    // 🆕 Get all site settings (for debug panel)
+    getAllSiteSettings() {
+        const settings = this.getSiteSettings();
+        const result = {};
+        
+        Object.keys(SITES).forEach(domain => {
+            if (settings[domain] !== undefined) {
+                result[domain] = settings[domain];
+            } else {
+                result[domain] = SITES[domain].enabledByDefault !== false;
+            }
+        });
+        
+        return result;
+    },
+   
+    // 🆕 Reset all site settings to defaults
+    resetAllSiteSettings() {
+        const defaultSettings = {};
+        Object.keys(SITES).forEach(domain => {
+            defaultSettings[domain] = SITES[domain].enabledByDefault !== false;
+        });
+        this.saveSiteSettings(defaultSettings);
+        this.log('All site settings reset to defaults', 'success');
+        return defaultSettings;
     },
    
     throttle(func, delay) {
@@ -136,7 +215,7 @@ const utils = {
         };
     },
    
-    // localStorage-based storage (Berry Browser compatible)
+    // localStorage-based storage
     getValue(key, defaultValue) {
         try {
             const item = localStorage.getItem(key);
@@ -164,13 +243,11 @@ const utils = {
         const { css, timestamp, url } = cacheData;
         const now = Date.now();
    
-        // Check if cache is for current URL
         if (url !== state.site.styleURL) {
             this.log('CSS URL changed, invalidating cache', 'debug');
             return null;
         }
    
-        // Check if cache is expired
         if (now - timestamp > CONFIG.CACHE_DURATION) {
             this.log('Cache expired', 'debug');
             return null;
@@ -223,7 +300,6 @@ const utils = {
         if (element) {
             this.log('Page is ready', 'success');
        
-            // Extra delay for Berry Browser on ChatGPT
             if (state.isBerryBrowser && currentDomain === 'chatgpt.com') {
                 this.log('Applying ChatGPT Berry Browser delay...', 'debug');
                 await new Promise(resolve => setTimeout(resolve, CONFIG.BERRY_INITIAL_DELAY));
@@ -237,12 +313,14 @@ const utils = {
     }
 };
 
+// 🆕 Initialize state.enabled from saved settings
+state.enabled = utils.getSiteEnabledState();
+
 // 📥 CSS loader optimized for Berry Browser (GitHub only)
 const cssLoader = {
     async fetchExternalCSS() {
         state.fetchAttempts++;
        
-        // 1. Check cache first
         const cachedCSS = utils.getCachedCSS();
         if (cachedCSS) {
             state.cssContent = cachedCSS;
@@ -252,7 +330,6 @@ const cssLoader = {
         utils.log(`Fetch attempt #${state.fetchAttempts}`, 'info');
         utils.log(`GitHub URL: ${state.site.styleURL}`, 'debug');
        
-        // 2. Try GM_xmlhttpRequest if available (Tampermonkey)
         if (state.hasGrants) {
             try {
                 const css = await this.fetchViaGM();
@@ -261,11 +338,9 @@ const cssLoader = {
                 return css;
             } catch (error) {
                 utils.log(`GM fetch failed: ${error.message}`, 'error');
-                // Continue to fallback
             }
         }
        
-        // 3. BERRY BROWSER PATH: Try GitHub fetch strategies
         if (state.isBerryBrowser) {
             try {
                 const css = await this.fetchForBerryBrowser();
@@ -279,7 +354,6 @@ const cssLoader = {
             }
         }
        
-        // 4. Standard fetch for other browsers
         try {
             const css = await this.fetchDirect();
             utils.setCachedCSS(css);
@@ -288,7 +362,6 @@ const cssLoader = {
         } catch (directError) {
             utils.log(`Direct fetch failed: ${directError.message}`, 'debug');
            
-            // 5. Try CORS proxy as last resort
             try {
                 const css = await this.fetchViaCORSProxy();
                 utils.setCachedCSS(css);
@@ -301,7 +374,6 @@ const cssLoader = {
         }
     },
    
-    // Method 1: GM_xmlhttpRequest (Tampermonkey only)
     fetchViaGM() {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -331,7 +403,6 @@ const cssLoader = {
         });
     },
    
-    // Method 2: Standard fetch
     async fetchDirect() {
         utils.log('Trying direct GitHub fetch...', 'github');
        
@@ -356,12 +427,10 @@ const cssLoader = {
         return css;
     },
    
-    // Method 3: Berry Browser optimized fetch (GitHub only)
     async fetchForBerryBrowser() {
         utils.log('Berry: Starting GitHub fetch...', 'berry');
        
         const strategies = [
-            // Try GitHub with different modes
             { url: state.site.styleURL, mode: 'no-cors', desc: 'GitHub no-cors' },
             { url: state.site.styleURL, mode: 'cors', desc: 'GitHub cors' }
         ];
@@ -376,7 +445,6 @@ const cssLoader = {
                     cache: 'no-store'
                 });
                
-                // With 'no-cors' we can't check status, but can try to get text
                 const css = await response.text();
                
                 if (css && css.trim().length > 10) {
@@ -392,7 +460,6 @@ const cssLoader = {
         throw new Error('All GitHub fetch strategies failed');
     },
    
-    // Method 4: CORS proxy (for GitHub)
     async fetchViaCORSProxy() {
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(state.site.styleURL)}`,
@@ -434,7 +501,7 @@ const cssLoader = {
     }
 };
 
-// 🎨 Style manager (unchanged)
+// 🎨 Style manager
 const styleManager = {
     async apply() {
         if (!state.enabled || state.isLoading) {
@@ -463,7 +530,6 @@ const styleManager = {
                 throw new Error('No CSS content available');
             }
 
-            // Try injection methods
             if (this.injectViaStyle()) {
                 state.appliedMethod = 'style-element';
                 utils.log('✅ Styles applied via style element', 'success');
@@ -471,7 +537,6 @@ const styleManager = {
                 return true;
             }
            
-            // Fallback to blob method
             if (await this.injectViaBlob()) {
                 state.appliedMethod = 'blob-link';
                 utils.log('✅ Styles applied via blob link', 'success');
@@ -514,7 +579,6 @@ const styleManager = {
        
             document.head.appendChild(link);
        
-            // Fallback timeout
             setTimeout(() => {
                 if (link.sheet) {
                     state.styleElement = link;
@@ -568,7 +632,7 @@ const styleManager = {
     }
 };
 
-// 👁️ Observer manager (unchanged)
+// 👁️ Observer manager
 const observerManager = {
     setup() {
         this.cleanup();
@@ -647,18 +711,19 @@ const observerManager = {
     }
 };
 
-// 📱 Floating button for Berry Browser (unchanged)
+// 📱 Enhanced UI Manager with Per-Site Settings Panel
 const uiManager = {
     setup() {
         this.createFloatingButton();
+        this.createSettingsPanel();
     },
    
     createFloatingButton() {
         const button = document.createElement('div');
-        button.id = 'ai-styler-btn';
+        button.id = 'site-styler-btn';
         button.style.cssText = `
             position: fixed;
-            bottom: 20px;
+            bottom: 80px;
             right: 20px;
             width: 50px;
             height: 50px;
@@ -680,26 +745,24 @@ const uiManager = {
    
         this.updateButtonState(button);
    
-        // Click: Toggle styles
+        // Click: Toggle current site styles
         button.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            this.toggleStyles();
+            this.toggleCurrentSite();
         });
    
-        // Long press: Debug info (Berry Browser)
-        if (state.isBerryBrowser) {
-            let longPressTimer;
-            button.addEventListener('touchstart', (e) => {
-                longPressTimer = setTimeout(() => {
-                    this.showDebugInfo();
-                }, 1500);
-            });
-           
-            button.addEventListener('touchend', () => {
-                clearTimeout(longPressTimer);
-            });
-        }
+        // Long press: Show settings panel
+        let longPressTimer;
+        button.addEventListener('touchstart', (e) => {
+            longPressTimer = setTimeout(() => {
+                this.toggleSettingsPanel();
+            }, 1000);
+        });
+       
+        button.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        });
    
         const addButton = () => {
             if (document.body) {
@@ -712,14 +775,13 @@ const uiManager = {
     },
    
     updateButtonState(button) {
-        if (!button) button = document.getElementById('ai-styler-btn');
+        if (!button) button = document.getElementById('site-styler-btn');
         if (!button) return;
    
         button.innerHTML = state.enabled ? '🎨' : '🚫';
         button.style.opacity = state.enabled ? '1' : '0.6';
-        button.title = `${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`;
+        button.title = `${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}\nLong press for settings`;
        
-        // Add pulse animation when loading
         if (state.isLoading) {
             button.style.animation = 'pulse 1.5s infinite';
         } else {
@@ -727,8 +789,9 @@ const uiManager = {
         }
     },
    
-    toggleStyles() {
+    toggleCurrentSite() {
         state.enabled = !state.enabled;
+        utils.saveSiteEnabledState(state.enabled);
        
         if (state.enabled) {
             styleManager.apply();
@@ -742,17 +805,260 @@ const uiManager = {
         this.showToast(`${state.site.name}: ${state.enabled ? 'ON' : 'OFF'}`);
     },
    
+    createSettingsPanel() {
+        // Create panel container
+        const panel = document.createElement('div');
+        panel.id = 'site-styler-settings';
+        panel.style.cssText = `
+            position: fixed;
+            bottom: 140px;
+            right: 20px;
+            background: rgba(0,0,0,0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 999998;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 300px;
+            max-width: 90vw;
+            max-height: 70vh;
+            overflow-y: auto;
+            font-family: system-ui, -apple-system, sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+       
+        // Title
+        const title = document.createElement('div');
+        title.textContent = '🎨 Site Styler Settings';
+        title.style.cssText = `
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        `;
+        panel.appendChild(title);
+       
+        // Current site info
+        const currentSiteInfo = document.createElement('div');
+        currentSiteInfo.innerHTML = `
+            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 5px;">CURRENT SITE</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>${state.site.name}</span>
+                <button id="toggle-current-site" style="
+                    background: ${state.enabled ? '#4CAF50' : '#f44336'};
+                    color: white;
+                    border: none;
+                    padding: 5px 15px;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">${state.enabled ? 'ENABLED' : 'DISABLED'}</button>
+            </div>
+        `;
+        panel.appendChild(currentSiteInfo);
+       
+        // All sites settings
+        const allSitesTitle = document.createElement('div');
+        allSitesTitle.textContent = 'ALL SITES';
+        allSitesTitle.style.cssText = `
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        `;
+        panel.appendChild(allSitesTitle);
+       
+        const sitesList = document.createElement('div');
+        sitesList.id = 'sites-list';
+        sitesList.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        `;
+        panel.appendChild(sitesList);
+       
+        // Actions
+        const actions = document.createElement('div');
+        actions.style.cssText = `
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        `;
+       
+        const resetBtn = document.createElement('button');
+        resetBtn.textContent = 'Reset All';
+        resetBtn.style.cssText = `
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            flex: 1;
+        `;
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Reset all site settings to defaults?')) {
+                utils.resetAllSiteSettings();
+                this.refreshSettingsPanel();
+                state.enabled = utils.getSiteEnabledState();
+                this.updateButtonState();
+                this.showToast('All settings reset');
+            }
+        });
+       
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            background: #666;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            flex: 1;
+        `;
+        closeBtn.addEventListener('click', () => {
+            this.toggleSettingsPanel();
+        });
+       
+        actions.appendChild(resetBtn);
+        actions.appendChild(closeBtn);
+        panel.appendChild(actions);
+       
+        // Add panel to body
+        document.body.appendChild(panel);
+       
+        // Add event listeners
+        document.getElementById('toggle-current-site').addEventListener('click', () => {
+            this.toggleCurrentSite();
+            this.refreshSettingsPanel();
+        });
+       
+        // Initial refresh of sites list
+        this.refreshSettingsPanel();
+    },
+   
+    refreshSettingsPanel() {
+        const sitesList = document.getElementById('sites-list');
+        if (!sitesList) return;
+       
+        const allSettings = utils.getAllSiteSettings();
+        sitesList.innerHTML = '';
+       
+        Object.keys(SITES).forEach(domain => {
+            const site = SITES[domain];
+            const isEnabled = allSettings[domain];
+            const isCurrent = domain === currentDomain;
+           
+            const siteItem = document.createElement('div');
+            siteItem.style.cssText = `
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px;
+                background: ${isCurrent ? 'rgba(100, 100, 255, 0.2)' : 'transparent'};
+                border-radius: 6px;
+                border: 1px solid rgba(255,255,255,0.1);
+            `;
+           
+            const siteName = document.createElement('div');
+            siteName.textContent = site.name;
+            siteName.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            `;
+           
+            if (isCurrent) {
+                const currentBadge = document.createElement('span');
+                currentBadge.textContent = '●';
+                currentBadge.style.cssText = `
+                    color: #4CAF50;
+                    font-size: 12px;
+                `;
+                siteName.prepend(currentBadge);
+            }
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.textContent = isEnabled ? 'ON' : 'OFF';
+            toggleBtn.style.cssText = `
+                background: ${isEnabled ? '#4CAF50' : '#f44336'};
+                color: white;
+                border: none;
+                padding: 4px 12px;
+                border-radius: 12px;
+                cursor: pointer;
+                font-size: 11px;
+                min-width: 50px;
+            `;
+           
+            toggleBtn.addEventListener('click', () => {
+                const settings = utils.getSiteSettings();
+                settings[domain] = !isEnabled;
+                utils.saveSiteSettings(settings);
+               
+                // If toggling current site, update UI immediately
+                if (domain === currentDomain) {
+                    state.enabled = !isEnabled;
+                    if (state.enabled) {
+                        styleManager.apply();
+                        observerManager.setup();
+                    } else {
+                        styleManager.remove();
+                        observerManager.cleanup();
+                    }
+                    this.updateButtonState();
+                }
+               
+                this.refreshSettingsPanel();
+                this.showToast(`${site.name}: ${!isEnabled ? 'ENABLED' : 'DISABLED'}`);
+            });
+           
+            siteItem.appendChild(siteName);
+            siteItem.appendChild(toggleBtn);
+            sitesList.appendChild(siteItem);
+        });
+       
+        // Update current site toggle button
+        const currentToggleBtn = document.getElementById('toggle-current-site');
+        if (currentToggleBtn) {
+            currentToggleBtn.textContent = state.enabled ? 'ENABLED' : 'DISABLED';
+            currentToggleBtn.style.background = state.enabled ? '#4CAF50' : '#f44336';
+        }
+    },
+   
+    toggleSettingsPanel() {
+        const panel = document.getElementById('site-styler-settings');
+        if (!panel) return;
+       
+        if (panel.style.display === 'flex') {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'flex';
+            this.refreshSettingsPanel();
+        }
+    },
+   
     showDebugInfo() {
+        const allSettings = utils.getAllSiteSettings();
         const info = `
-🍓 Berry Browser Debug Info:
-Site: ${state.site.name}
+🍓 Site Styler Debug Info:
+Current Site: ${state.site.name} (${state.enabled ? 'ENABLED' : 'DISABLED'})
 GitHub URL: ${state.site.styleURL}
-Enabled: ${state.enabled}
-Fetch Attempts: ${state.fetchAttempts}
+
+ALL SITE SETTINGS:
+${Object.keys(allSettings).map(domain => `  ${domain}: ${allSettings[domain] ? '✅' : '❌'}`).join('\n')}
+
 CSS Content: ${state.cssContent ? state.cssContent.length + ' chars' : 'None'}
 Applied Method: ${state.appliedMethod || 'None'}
 Style Applied: ${styleManager.isApplied()}
-User Agent: ${navigator.userAgent}
         `.trim();
        
         console.log(info);
@@ -763,22 +1069,22 @@ User Agent: ${navigator.userAgent}
         const toast = document.createElement('div');
         toast.style.cssText = `
             position: fixed;
-            bottom: 80px;
+            bottom: 140px;
             right: 20px;
             background: rgba(0,0,0,0.85);
             color: white;
             padding: 12px 20px;
             border-radius: 8px;
             font-size: 14px;
-            z-index: 999998;
+            z-index: 999997;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             animation: slideIn 0.3s ease;
             max-width: 300px;
             word-wrap: break-word;
         `;
-   
+       
         toast.textContent = message;
-   
+       
         if (document.body) {
             document.body.appendChild(toast);
             setTimeout(() => {
@@ -790,7 +1096,7 @@ User Agent: ${navigator.userAgent}
     }
 };
 
-// 🧭 Navigation manager (unchanged)
+// 🧭 Navigation manager
 const navigationManager = {
     init() {
         window.addEventListener('popstate', this.handleURLChange);
@@ -812,9 +1118,10 @@ const navigationManager = {
 // 🚀 Main application
 const app = {
     async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v5.0`, 'info');
+        utils.log(`🚀 Initializing ${state.site.name} Styler v5.1`, 'info');
         utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard'}`, 'info');
         utils.log(`Source: GitHub Raw URLs`, 'github');
+        utils.log(`Site setting: ${state.enabled ? 'ENABLED' : 'DISABLED'}`, 'config');
    
         // Add CSS animations
         this.addPulseAnimation();
@@ -823,8 +1130,10 @@ const app = {
         const initialDelay = state.isBerryBrowser ? 2000 : 500;
    
         setTimeout(async () => {
-            await this.applyWithRetry();
-            observerManager.setup();
+            if (state.enabled) {
+                await this.applyWithRetry();
+                observerManager.setup();
+            }
             uiManager.setup();
             navigationManager.init();
             this.setupEventListeners();
