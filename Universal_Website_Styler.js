@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Universal AI Chat Styler (Berry Browser Compatible)
 // @namespace    http://yourdomain.example
-// @version      3.7
-// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, Gmail, GitHub, Facebook, Twitter/X, and Stack Overflow via jsDelivr - Berry Browser Optimized
+// @version      3.9
+// @description  Load custom CSS for ChatGPT, Claude AI, Google Search, Gmail, GitHub, Facebook, Twitter/X, Stack Overflow, and Wikipedia via jsDelivr - Berry Browser Optimized
 // @match        https://chatgpt.com/*
 // @match        https://claude.ai/*
 // @match        https://www.google.com/*
@@ -21,6 +21,8 @@
 // @match        https://*.twitter.com/*
 // @match        https://stackoverflow.com/*
 // @match        https://*.stackoverflow.com/*
+// @match        https://www.wikipedia.org/*
+// @match        https://*.wikipedia.org/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
@@ -182,48 +184,41 @@ const SITES = {
             'jobs': '.jobs-page',
             'search': '.search-results'
         }
+    },
+    // Wikipedia portal
+    'www.wikipedia.org': {
+        name: 'Wikipedia',
+        styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/wikipedia%20style.css',
+        fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/wikipedia%20style.css',
+        styleID: 'wikipedia-enhanced-styles',
+        needsReadyCheck: false,
+        readySelector: 'body',
+        aggressiveReapply: false
     }
 };
 
-// 🏗️ Enhanced site detection
+// 🏗️ Enhanced site detection - FIXED VERSION
 function detectCurrentSite() {
     const hostname = window.location.hostname;
     const pathname = window.location.pathname;
 
-    // Direct domain match
+    // 🆕 IMPORTANT: Check for Gmail FIRST before generic Google
+    if (hostname === 'mail.google.com') {
+        return SITES['mail.google.com'];
+    }
+
+    // Direct domain match for other sites
     if (SITES[hostname]) {
         return SITES[hostname];
     }
 
-    // Handle all Google domains
-    if (hostname.includes('google.')) {
-        // Check for Gmail
-        if (hostname === 'mail.google.com' || hostname.includes('mail.google.')) {
-            return {
-                name: 'Gmail',
-                styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/mail.google.com.css',
-                fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/mail.google.com.css',
-                styleID: 'gmail-enhanced-styles',
-                needsReadyCheck: true,
-                readySelector: 'body, div[role="navigation"], div[role="main"], div[gh="tl"], .aeN',
-                aggressiveReapply: true,
-                isGmail: true,
-                pageSelectors: {
-                    'inbox': 'div[role="main"] div[gh="tl"]',
-                    'compose': 'div[role="dialog"][aria-label="New Message"]',
-                    'email': 'div[role="main"] div[role="listitem"]',
-                    'settings': 'div[role="main"] div[aria-label="Settings"]',
-                    'chat': 'div[role="main"] div[gh="cm"]'
-                }
-            };
-        }
-        
-        // Existing Google Search detection
+    // Handle other Google subdomains (except mail.google.com which we already handled)
+    if (hostname.includes('google.') && hostname !== 'mail.google.com') {
         const isSearchPage = pathname === '/search' ||
                             pathname === '/' ||
                             document.querySelector('input[name="q"]') ||
                             document.querySelector('form[action*="/search"]');
-   
+
         if (isSearchPage) {
             return {
                 name: 'Google Search',
@@ -329,6 +324,19 @@ function detectCurrentSite() {
                 'jobs': '.jobs-page',
                 'search': '.search-results'
             }
+        };
+    }
+
+    // 🆕 Handle all Wikipedia subdomains (en.wikipedia.org, fr.wikipedia.org, etc.)
+    if (hostname.endsWith('wikipedia.org')) {
+        return {
+            name: 'Wikipedia',
+            styleURL: 'https://cdn.jsdelivr.net/gh/yfjuu4/ai-chat-styles@main/wikipedia%20style.css',
+            fallbackURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/wikipedia%20style.css',
+            styleID: 'wikipedia-enhanced-styles',
+            needsReadyCheck: false,
+            readySelector: 'body',
+            aggressiveReapply: false
         };
     }
 
@@ -517,7 +525,8 @@ const utils = {
                 'div[gh="tl"]',
                 '.aeN',
                 'table[role="presentation"]',
-                'div[role="tabpanel"]'
+                'div[role="tabpanel"]',
+                'div[data-ogsr-up]'
             ];
             
             for (const selector of gmailSelectors) {
@@ -553,12 +562,12 @@ const utils = {
                 const element = await this.waitForElement(selector, 5000);
                 if (element) {
                     this.log('Google search page is ready', 'success');
-               
+            
                     if (state.isBerryBrowser) {
                         this.log('Applying Google Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GOOGLE_DELAY));
                     }
-               
+            
                     return true;
                 }
             }
@@ -569,22 +578,22 @@ const utils = {
         // GitHub handling
         if (state.site.isGitHub) {
             this.log('Detecting GitHub page type...', 'debug');
-        
+    
             for (const selector of state.site.readySelector.split(', ')) {
                 const element = await this.waitForElement(selector, 7000);
                 if (element) {
                     this.log(`GitHub ${selector} found`, 'debug');
-                
+            
                     if (state.isBerryBrowser) {
                         this.log('Applying GitHub Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.GITHUB_DELAY));
                     }
-                
+            
                     await new Promise(resolve => setTimeout(resolve, 500));
                     return true;
                 }
             }
-        
+    
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -592,7 +601,7 @@ const utils = {
                     return true;
                 }
             }
-        
+    
             this.log('GitHub page ready check timed out, continuing anyway', 'warning');
             return true;
         }
@@ -600,7 +609,7 @@ const utils = {
         // Facebook handling
         if (state.site.isFacebook) {
             this.log('Waiting for Facebook page to be ready...', 'debug');
-         
+      
             const facebookSelectors = [
                 '#facebook',
                 '[role="main"]',
@@ -608,22 +617,22 @@ const utils = {
                 '._2s1x',
                 'div[class*="x1iyjqo2"]'
             ];
-         
+      
             for (const selector of facebookSelectors) {
                 const element = await this.waitForElement(selector, 8000);
                 if (element) {
                     this.log(`Facebook element found: ${selector}`, 'debug');
-                 
+              
                     if (state.isBerryBrowser) {
                         this.log('Applying Facebook Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.FACEBOOK_DELAY));
                     }
-                 
+              
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     return true;
                 }
             }
-         
+      
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -631,7 +640,7 @@ const utils = {
                     return true;
                 }
             }
-         
+      
             this.log('Facebook page ready check timed out, continuing anyway', 'warning');
             return true;
         }
@@ -639,7 +648,7 @@ const utils = {
         // Twitter/X handling
         if (state.site.isTwitter) {
             this.log('Waiting for Twitter/X page to be ready...', 'debug');
-          
+       
             const twitterSelectors = [
                 '[data-testid="primaryColumn"]',
                 '[role="main"]',
@@ -647,22 +656,22 @@ const utils = {
                 '[data-testid="SideNav_AccountSwitcher_Button"]',
                 'article[data-testid="tweet"]'
             ];
-          
+       
             for (const selector of twitterSelectors) {
                 const element = await this.waitForElement(selector, 6000);
                 if (element) {
                     this.log(`Twitter/X element found: ${selector}`, 'debug');
-                  
+               
                     if (state.isBerryBrowser) {
                         this.log('Applying Twitter/X Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.TWITTER_DELAY));
                     }
-                  
+               
                     await new Promise(resolve => setTimeout(resolve, 700));
                     return true;
                 }
             }
-          
+       
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -670,7 +679,7 @@ const utils = {
                     return true;
                 }
             }
-          
+       
             this.log('Twitter/X page ready check timed out, continuing anyway', 'warning');
             return true;
         }
@@ -678,7 +687,7 @@ const utils = {
         // Stack Overflow handling
         if (state.site.isStackOverflow) {
             this.log('Waiting for Stack Overflow page to be ready...', 'debug');
-           
+        
             const stackOverflowSelectors = [
                 '#content',
                 '.container',
@@ -687,22 +696,22 @@ const utils = {
                 '#question-header',
                 '.question'
             ];
-           
+        
             for (const selector of stackOverflowSelectors) {
                 const element = await this.waitForElement(selector, 6000);
                 if (element) {
                     this.log(`Stack Overflow element found: ${selector}`, 'debug');
-                   
+                
                     if (state.isBerryBrowser) {
                         this.log('Applying Stack Overflow Berry Browser delay...', 'debug');
                         await new Promise(resolve => setTimeout(resolve, CONFIG.STACKOVERFLOW_DELAY));
                     }
-                   
+                
                     await new Promise(resolve => setTimeout(resolve, 300));
                     return true;
                 }
             }
-           
+        
             for (const [pageType, selector] of Object.entries(state.site.pageSelectors)) {
                 const element = document.querySelector(selector);
                 if (element) {
@@ -710,7 +719,7 @@ const utils = {
                     return true;
                 }
             }
-           
+        
             this.log('Stack Overflow page ready check timed out, continuing anyway', 'warning');
             return true;
         }
@@ -778,7 +787,7 @@ const cssLoader = {
             return css;
         } catch (directError) {
             utils.log(`Direct fetch failed: ${directError.message}`, 'debug');
-      
+    
             try {
                 const css = await this.fetchViaCORSProxy();
                 utils.setCachedCSS(css);
@@ -856,18 +865,18 @@ const cssLoader = {
 
         for (const strategy of strategies) {
             if (!strategy.url) continue;
-      
+    
             utils.log(`Berry: Trying ${strategy.desc}...`, 'debug');
-      
+    
             try {
                 const response = await fetch(strategy.url, {
                     method: 'GET',
                     mode: strategy.mode,
                     cache: 'no-store'
                 });
-          
+        
                 const css = await response.text();
-          
+        
                 if (css && css.trim().length > 10) {
                     utils.log(`Berry (${strategy.desc}): Got ${css.length} chars`, 'success');
                     return css;
@@ -892,19 +901,19 @@ const cssLoader = {
             const proxyUrl = proxies[i];
             try {
                 utils.log(`Trying proxy ${i + 1}/${proxies.length}`, 'debug');
-          
+        
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
                     headers: { 'Accept': 'text/css,*/*' },
                     cache: 'no-store'
                 });
-          
+        
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-          
+        
                 const css = await response.text();
-          
+        
                 if (css && css.trim().length > 0) {
                     utils.log(`Fetched ${css.length} chars via proxy`, 'success');
                     return css;
@@ -957,7 +966,7 @@ const styleManager = {
                 state.isLoading = false;
                 return true;
             }
-      
+    
             if (await this.injectViaBlob()) {
                 state.appliedMethod = 'blob-link';
                 utils.log('✅ Styles applied via blob link', 'success');
@@ -1087,7 +1096,7 @@ const observerManager = {
                             }
                         }
                     }
-                 
+              
                     if (mutation.target && mutation.target.id === 'facebook') {
                         shouldReapply = true;
                     }
@@ -1132,7 +1141,7 @@ const observerManager = {
                 utils.log('Aggressive observer stopped', 'debug');
                 return;
             }
-   
+
             if (!styleManager.isApplied() && state.enabled) {
                 utils.log('Style missing, reapplying...', 'debug');
                 await styleManager.forceReapply();
@@ -1201,7 +1210,7 @@ const uiManager = {
                     this.showDebugInfo();
                 }, 1500);
             });
-      
+    
             button.addEventListener('touchend', () => {
                 clearTimeout(longPressTimer);
             });
@@ -1365,8 +1374,16 @@ const navigationManager = {
 // 🚀 Main application
 const app = {
     async init() {
-        utils.log(`🚀 Initializing ${state.site.name} Styler v3.7`, 'info');
+        utils.log(`🚀 Initializing ${state.site.name} Styler v3.9`, 'info');
         utils.log(`Mode: ${state.isBerryBrowser ? '🍓 Berry Browser' : 'Standard'}`, 'info');
+        
+        // 🆕 Debug log to verify site detection
+        console.log('🚀 Site detection result:', {
+            hostname: window.location.hostname,
+            siteName: state.site.name,
+            isGmail: state.site.isGmail,
+            isGoogle: state.site.isGoogle
+        });
 
         this.addPulseAnimation();
 
@@ -1407,7 +1424,7 @@ const app = {
         for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
             try {
                 utils.log(`Apply attempt ${attempt}/${CONFIG.MAX_RETRIES}`, 'debug');
-      
+    
                 if (await styleManager.apply()) {
                     utils.log('Styles successfully applied!', 'success');
                     return;
