@@ -1,48 +1,26 @@
 // ==UserScript==
-// @name ChatGPT Styler
+// @name ChatGPT Styler for Berry Browser
 // @namespace http://yourdomain.example
 // @version 1
-// @description Enhanced CSS styling with improved reliability and performance
+// @description Enhanced CSS styling for Berry Browser
 // @match https://chatgpt.com/*
-// @grant GM_addStyle
-// @grant GM_registerMenuCommand
-// @grant GM_unregisterMenuCommand
-// @grant GM_setValue
-// @grant GM_getValue
-// @grant GM_log
 // @run-at document-end
 // ==/UserScript==
+
 (function() {
 'use strict';
+
 // Configuration
 const CONFIG = {
-STYLE_ID: 'chatgpt-enhanced-styles',
-DEBUG_MODE: false,
-RETRY_DELAY: 100,
-MAX_RETRIES: 50,
-OBSERVER_THROTTLE: 250
+    STYLE_ID: 'chatgpt-enhanced-styles',
+    DEBUG_MODE: false,
+    RETRY_DELAY: 100,
+    MAX_RETRIES: 50,
+    OBSERVER_THROTTLE: 250
 };
+
 const USER_CSS = String.raw`
-/* Your CSS styles here */
 /*========================================================*/
-/* Target the entire scrollbar and set its width */
-::-webkit-scrollbar {
-  width: 9px;
-}
-/* Style the scrollbar thumb (the draggable part) */
-::-webkit-scrollbar-thumb {
-  background-color: #00c508; /* Grey color */
-  border-radius: 6px; /* Rounded corners */
-}
-/* Style the scrollbar track (the background) */
-::-webkit-scrollbar-track {
-  background-color: black; /* Light grey */
-  border-left: 2px #f300ff solid;
-}
-/* Style the thumb on hover */
-::-webkit-scrollbar-thumb:hover {
-  background-color: #555; /* Darker grey on hover */
-}
 .md\:px-Mathjax,
 .pt-5,
 .font-bold,
@@ -73,12 +51,10 @@ button[data-testid="share-chat-button"],
 .pt-\(--sidebar-section-first-margin-top\):nth-child(3),
 .sm\:items-center
 ,.mb-\[var\(--sidebar-collapsed-section-margin-bottom\)\]
-,.z-30
-{
+,#page-header {
     display: none !important;
 }
 /*-----------------------------------------*/
-
 .flex > div > .text-sm {
     font-size: 20px;
 }
@@ -133,7 +109,7 @@ body {
     margin-bottom: 0;
     margin-top: 0;
     Color: #d50000;
-    font-size: 18px !important;
+    font-size: 20px !important;
 }
 .xl\:max-w-Mathjax {
     border: 1px solid #0048ff;
@@ -177,7 +153,6 @@ tr:nth-child(1) > .text-left {
     margin-top: 0rem;
     Color: black !important;
 }
-
 .rounded {
     border-top: 2px #00a30b solid;
     padding: 0rem;
@@ -340,10 +315,10 @@ tr .text-right {
     background-color: #b92bc9;
 }
 [dir=ltr] .pl-3 {
-    padding-left: unset;
+    padding-left: 0;
 }
 [dir=ltr] .pr-3 {
-    padding-right: unset;
+    padding-right: 0;
 }
 .p-2 {
     padding-left: 10px;
@@ -356,9 +331,6 @@ tr .text-right {
 }
 .from-60\% {
     background-color: #b62121;
-}
-.pr-1:not(.pr-1:nth-child(1)) {
-    padding-right: 0rem;
 }
 .icon-2xl {
     background-color: #3e9e00;
@@ -497,8 +469,9 @@ li .cursor-pointer {
     margin-top: 0;
 }
 .px-6 {
-    padding-right: unset !important;
+    padding-right: 0 !important;
 }
+/* .dark :not(.light).popover:not(.radix-side-bottom\:animate-slideUpAndFade[data-side=bottom]) */
 .max-w-md {
     border: 1px #00c6ab solid;
     background-color: black;
@@ -544,7 +517,6 @@ li > .cursor-pointer .text-sm {
     color: #d8c8c8;
 }
 .\@\[64rem\]\:\[--thread-content-max-width\:48rem\] {
-    --thread-content-max-width: 64rem;
     border: 1px #a00 solid;
 }
 .\@\[70rem\]\:\[--thread-content-margin\:--spacing\(12\)\] {
@@ -564,7 +536,7 @@ li > .cursor-pointer .text-sm {
     transition-duration: unset;
 }
 .\[scrollbar-gutter\:stable\] {
-    padding-top: unset;
+    padding-top: 0;
 }
 .\@\[72rem\]\:\[--thread-content-margin\:--spacing\(16\)\] {
     --thread-content-margin: unset;
@@ -582,14 +554,14 @@ li > .cursor-pointer .text-sm {
     padding-top: 0;
 }
 .mt-1\.5 {
-    margin-top: unset;
+    margin-top: 0;
 }
 .break-all {
     Color: #d9c7c7 !important;
     font-size: 20px;
 }
 .transition-opacity {
-    padding-left: unset;
+    padding-left: 0;
 }
 .icon-xl-heavy {
     Color: #d9c7c7 !important;
@@ -603,8 +575,7 @@ li > .cursor-pointer .text-sm {
 .m-2 {
     margin: 0;
 }
-/*-----------------------------------------*/
-/*chat history*/
+/*-------------------- SECTION_START: Chat History --------------------*/
 .truncate {
     font-size: 20px;
 }
@@ -620,11 +591,10 @@ li > .cursor-pointer .text-sm {
     display: block;
     font-size: 20px;
     font-weight: var(--font-weight-normal);
-    margin: unset !important;
+    margin: 0 !important;
     padding: 0 !important;
 }
-.gap-6
-{
+.gap-6/* .gap-6:not(.__menu-item:not(:disabled):not([data-disabled])[data-active]) */ {
     padding-right: 0px;
     padding-left: 5px;
     padding-top: 0;
@@ -673,8 +643,7 @@ li > .cursor-pointer .text-sm {
 .gap-2\.5:hover {
     Color: black !important;
 }
-/*chat history*/
-/*-----------------------------------------*/
+/*-------------------- SECTION_End: Chat History --------------------*/
 .pt-1\.5 {
     padding-top: 0;
 }
@@ -692,14 +661,13 @@ li > .cursor-pointer .text-sm {
 .tabular-nums {
     Color: #e1c7c7;
 }
-/*main text input field*/
 /*-----------------------------------------*/
 .mx-5 {
     align-self: center;
     margin: 0;
 }
 #prompt-textarea > p {
-    Color: #d1c1c1;
+    Color: #cd0101;
     font-size: 20px;
 }
 #prompt-textarea {
@@ -709,18 +677,17 @@ li > .cursor-pointer .text-sm {
 .justify-content-end {
     border-top: 1px #00a4b9 solid;
 }
+.min-h-14 {
+    min-height: calc(var(--spacing)*7);
+}
 .py-1\.5 {
     Color: #00bdca;
     background-color: black;
     text-align: center;
     border: 1px #a300a7 solid;
     place-self: center;
-    max-width: -webkit-fill-available;
-    padding-left: 2px;
-    padding-right: 2px;
+    padding:0;
 }
-
-/*main text input field*/
 /*-----------------------------------------*/
 .pt-3 {
     padding: 0;
@@ -729,7 +696,6 @@ li > .cursor-pointer .text-sm {
     padding-top: 0;
 }
 .thread-lg\:\[--thread-content-max-width\:48rem\] {
-    --thread-content-max-width: 64rem;
     border: 1px #e10000 solid;
 }
 .md\:gap-8 {
@@ -751,6 +717,9 @@ li > .cursor-pointer .text-sm {
     padding: 0;
     border-top: 1px #bf9e9e solid;
 }
+.min-h-\[46px\] {
+    min-height: 34px;
+}
 p > em {
     Color: #00c016;
 }
@@ -758,8 +727,7 @@ p > em {
     margin-block: 0;
 }
 .pb-9\!
-,.gap-4
-{
+,.gap-4 {
     padding: 0px !important;
     padding: calc(var(--spacing)*0) !important;
 }
@@ -773,15 +741,17 @@ p > em {
     padding-block: calc(var(--spacing)*0) !important;
 }
 .-mb-9 {
-    margin-bottom: unset !important;
+    margin-bottom: 0 !important;
 }
-#thread-bottom > div > div > div.pointer-events-auto.relative.z-1.flex.h-\[var\(--composer-container-height\,100\%\)\].max-w-full.flex-\[var\(--composer-container-flex\,1\)\].flex-col > div > div > div > div > div > aside
-{
+#thread-bottom > div > div > div.pointer-events-auto.relative.z-1.flex.h-\[var\(--composer-container-height\,100\%\)\].max-w-full.flex-\[var\(--composer-container-flex\,1\)\].flex-col > div > div > div > div > div > aside {
     padding: 0px !important;
     background-color: black !important;
 }
 .\@w-xl\/main\:pt-header-height {
     padding-top: 10px;
+}
+.\@w-lg\/main\:\[--thread-content-max-width\:48rem\] {
+    border: 1px #e10000 solid;
 }
 .composer-submit-btn {
     background-color: #d8cbcb;
@@ -789,285 +759,250 @@ p > em {
 }
 /*========================================================*/
 `;
+
 // State management
 const state = {
-enabled: true,
-styleElement: null,
-observer: null,
-retryCount: 0,
-lastThrottle: 0,
-menuCommandId: null,
-currentURL: location.href
+    enabled: true, // Always enabled since we can't save preferences
+    styleElement: null,
+    observer: null,
+    retryCount: 0,
+    lastThrottle: 0,
+    currentURL: location.href
 };
+
 // Utility functions
 const utils = {
-log(message) {
-if (!CONFIG.DEBUG_MODE) return;
-try {
-const logger = typeof GM_log !== 'undefined' ? GM_log : console.log;
-logger(`ChatGPT Styler: ${message}`);
-} catch (e) {
-console.log(`ChatGPT Styler: ${message}`);
-}
-},
-throttle(func, delay) {
-let timeoutId;
-let lastExecTime = 0;
-return function(...args) {
-const context = this;
-const currentTime = Date.now();
-const execute = function() {
-lastExecTime = currentTime;
-func.apply(context, args);
+    log(message) {
+        if (!CONFIG.DEBUG_MODE) return;
+        console.log(`ChatGPT Styler: ${message}`);
+    },
+    
+    throttle(func, delay) {
+        let timeoutId;
+        let lastExecTime = 0;
+        return function(...args) {
+            const context = this;
+            const currentTime = Date.now();
+            const execute = function() {
+                lastExecTime = currentTime;
+                func.apply(context, args);
+            };
+            clearTimeout(timeoutId);
+            if (currentTime - lastExecTime > delay) {
+                execute();
+            } else {
+                timeoutId = setTimeout(execute, delay - (currentTime - lastExecTime));
+            }
+        };
+    },
+    
+    safeCall(fn, fallback = null) {
+        try {
+            return fn();
+        } catch (e) {
+            this.log(`Error in safeCall: ${e}`);
+            return fallback;
+        }
+    }
 };
-clearTimeout(timeoutId);
-if (currentTime - lastExecTime > delay) {
-execute();
-} else {
-timeoutId = setTimeout(execute, delay - (currentTime - lastExecTime));
-}
-};
-},
-safeCall(fn, fallback = null) {
-try {
-return fn();
-} catch (e) {
-this.log(`Error in safeCall: ${e}`);
-return fallback;
-}
-},
-getValue(key, defaultValue) {
-return this.safeCall(() =>
-typeof GM_getValue !== 'undefined' ? GM_getValue(key, defaultValue) : defaultValue
-, defaultValue);
-},
-setValue(key, value) {
-return this.safeCall(() => {
-if (typeof GM_setValue !== 'undefined') {
-GM_setValue(key, value);
-return true;
-}
-return false;
-}, false);
-}
-};
+
 // Style management
 const styleManager = {
-apply() {
-if (!state.enabled) return false;
-this.remove();
-// Method 1: Direct style injection (most reliable)
-if (this.injectStyleElement()) return true;
-// Method 2: GM_addStyle fallback
-if (this.useGMAddStyle()) return true;
-utils.log('Failed to apply styles with any method');
-return false;
-},
-injectStyleElement() {
-return utils.safeCall(() => {
-if (!document.head) return false;
-state.styleElement = document.createElement('style');
-state.styleElement.id = CONFIG.STYLE_ID;
-state.styleElement.type = 'text/css';
-state.styleElement.textContent = USER_CSS;
-// Make it hard to remove
-state.styleElement.setAttribute('data-protected', 'true');
-document.head.appendChild(state.styleElement);
-utils.log('Styles applied via style element');
-return true;
-}, false);
-},
-useGMAddStyle() {
-return utils.safeCall(() => {
-if (typeof GM_addStyle === 'undefined') return false;
-GM_addStyle(USER_CSS);
-utils.log('Styles applied via GM_addStyle');
-return true;
-}, false);
-},
-remove() {
-// Remove existing style elements
-const existingStyle = document.getElementById(CONFIG.STYLE_ID);
-if (existingStyle) {
-existingStyle.remove();
-}
-state.styleElement = null;
-utils.log('Styles removed');
-},
-isApplied() {
-return !!document.getElementById(CONFIG.STYLE_ID);
-},
-forceReapply() {
-if (state.enabled && !this.isApplied()) {
-utils.log('Force reapplying styles');
-this.apply();
-}
-}
+    apply() {
+        if (!state.enabled) return false;
+        this.remove();
+        
+        // Direct style injection (the only method supported in Berry Browser)
+        return this.injectStyleElement();
+    },
+    
+    injectStyleElement() {
+        return utils.safeCall(() => {
+            if (!document.head) return false;
+            
+            state.styleElement = document.createElement('style');
+            state.styleElement.id = CONFIG.STYLE_ID;
+            state.styleElement.type = 'text/css';
+            state.styleElement.textContent = USER_CSS;
+            // Make it hard to remove
+            state.styleElement.setAttribute('data-protected', 'true');
+            document.head.appendChild(state.styleElement);
+            
+            utils.log('Styles applied via style element');
+            return true;
+        }, false);
+    },
+    
+    remove() {
+        // Remove existing style elements
+        const existingStyle = document.getElementById(CONFIG.STYLE_ID);
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+        state.styleElement = null;
+        utils.log('Styles removed');
+    },
+    
+    isApplied() {
+        return !!document.getElementById(CONFIG.STYLE_ID);
+    },
+    
+    forceReapply() {
+        if (state.enabled && !this.isApplied()) {
+            utils.log('Force reapplying styles');
+            this.apply();
+        }
+    }
 };
+
 // Observer management
 const observerManager = {
-setup() {
-this.cleanup();
-if (!state.enabled) return;
-this.createDOMObserver();
-utils.log('Observer started');
-},
-createDOMObserver() {
-const throttledReapply = utils.throttle(() => {
-styleManager.forceReapply();
-}, CONFIG.OBSERVER_THROTTLE);
-state.observer = new MutationObserver(mutations => {
-let shouldReapply = false;
-for (const mutation of mutations) {
-// Check for removed style element
-if (mutation.removedNodes.length > 0) {
-for (const node of mutation.removedNodes) {
-if (node.id === CONFIG.STYLE_ID) {
-shouldReapply = true;
-break;
-}
-}
-}
-// Check for added nodes that might affect styling
-if (mutation.addedNodes.length > 0 && mutation.target === document.head) {
-shouldReapply = true;
-}
-}
-if (shouldReapply) {
-throttledReapply();
-}
-});
-state.observer.observe(document, {
-childList: true,
-subtree: true
-});
-},
-cleanup() {
-if (state.observer) {
-state.observer.disconnect();
-state.observer = null;
-}
-utils.log('Observer cleaned up');
-}
+    setup() {
+        this.cleanup();
+        if (!state.enabled) return;
+        this.createDOMObserver();
+        utils.log('Observer started');
+    },
+    
+    createDOMObserver() {
+        const throttledReapply = utils.throttle(() => {
+            styleManager.forceReapply();
+        }, CONFIG.OBSERVER_THROTTLE);
+        
+        state.observer = new MutationObserver(mutations => {
+            let shouldReapply = false;
+            for (const mutation of mutations) {
+                // Check for removed style element
+                if (mutation.removedNodes.length > 0) {
+                    for (const node of mutation.removedNodes) {
+                        if (node.id === CONFIG.STYLE_ID) {
+                            shouldReapply = true;
+                            break;
+                        }
+                    }
+                }
+                // Check for added nodes that might affect styling
+                if (mutation.addedNodes.length > 0 && mutation.target === document.head) {
+                    shouldReapply = true;
+                }
+            }
+            if (shouldReapply) {
+                throttledReapply();
+            }
+        });
+        
+        state.observer.observe(document, {
+            childList: true,
+            subtree: true
+        });
+    },
+    
+    cleanup() {
+        if (state.observer) {
+            state.observer.disconnect();
+            state.observer = null;
+        }
+        utils.log('Observer cleaned up');
+    }
 };
-// Menu management
-const menuManager = {
-setup() {
-if (typeof GM_registerMenuCommand === 'undefined') return;
-this.updateToggleCommand();
-utils.log('Menu commands registered');
-},
-updateToggleCommand() {
-utils.safeCall(() => {
-// Remove existing command
-if (state.menuCommandId && typeof GM_unregisterMenuCommand !== 'undefined') {
-GM_unregisterMenuCommand(state.menuCommandId);
-}
-// Register new command
-const commandText = state.enabled ? '🎨 Styles ON ✅' : '🎨 Styles OFF ❌';
-state.menuCommandId = GM_registerMenuCommand(commandText, () => {
-this.toggleStyles();
-});
-});
-},
-toggleStyles() {
-state.enabled = !state.enabled;
-utils.setValue('stylesEnabled', state.enabled);
-if (state.enabled) {
-styleManager.apply();
-observerManager.setup();
-} else {
-styleManager.remove();
-observerManager.cleanup();
-}
-this.updateToggleCommand();
-utils.log(`Styles ${state.enabled ? 'enabled' : 'disabled'}`);
-}
-};
+
 // SPA Navigation handling
 const navigationManager = {
-init() {
-this.overrideHistoryMethods();
-window.addEventListener('popstate', this.handleURLChange);
-window.addEventListener('hashchange', this.handleURLChange);
-},
-overrideHistoryMethods() {
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
-history.pushState = function() {
-originalPushState.apply(this, arguments);
-navigationManager.handleURLChange();
+    init() {
+        this.overrideHistoryMethods();
+        window.addEventListener('popstate', this.handleURLChange);
+        window.addEventListener('hashchange', this.handleURLChange);
+    },
+    
+    overrideHistoryMethods() {
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function() {
+            originalPushState.apply(this, arguments);
+            navigationManager.handleURLChange();
+        };
+        
+        history.replaceState = function() {
+            originalReplaceState.apply(this, arguments);
+            navigationManager.handleURLChange();
+        };
+    },
+    
+    handleURLChange: utils.throttle(() => {
+        if (location.href !== state.currentURL) {
+            state.currentURL = location.href;
+            utils.log(`URL changed: ${state.currentURL}`);
+            if (state.enabled) {
+                styleManager.forceReapply();
+            }
+        }
+    }, 300)
 };
-history.replaceState = function() {
-originalReplaceState.apply(this, arguments);
-navigationManager.handleURLChange();
-};
-},
-handleURLChange: utils.throttle(() => {
-if (location.href !== state.currentURL) {
-state.currentURL = location.href;
-utils.log(`URL changed: ${state.currentURL}`);
-if (state.enabled) {
-styleManager.forceReapply();
-}
-}
-}, 300)
-};
+
 // Main initialization
 const app = {
-init() {
-utils.log('Initializing ChatGPT Styler Enhanced');
-// Load saved state
-state.enabled = utils.getValue('stylesEnabled', true);
-// Apply styles with retry mechanism
-this.applyWithRetry();
-// Setup observer and menu
-observerManager.setup();
-menuManager.setup();
-// Setup event listeners and SPA handling
-this.setupEventListeners();
-navigationManager.init();
-utils.log(`Initialization complete. Styles: ${state.enabled ? 'enabled' : 'disabled'}`);
-},
-applyWithRetry() {
-if (!state.enabled) return;
-const attempt = () => {
-if (styleManager.apply()) {
-state.retryCount = 0;
-return;
-}
-state.retryCount++;
-if (state.retryCount < CONFIG.MAX_RETRIES) {
-setTimeout(attempt, CONFIG.RETRY_DELAY);
-} else {
-utils.log('Max retries reached, giving up');
-}
+    init() {
+        utils.log('Initializing ChatGPT Styler for Berry Browser');
+        
+        // Apply styles with retry mechanism
+        this.applyWithRetry();
+        
+        // Setup observer
+        observerManager.setup();
+        
+        // Setup event listeners and SPA handling
+        this.setupEventListeners();
+        navigationManager.init();
+        
+        utils.log('Initialization complete. Styles applied.');
+    },
+    
+    applyWithRetry() {
+        if (!state.enabled) return;
+        
+        const attempt = () => {
+            if (styleManager.apply()) {
+                state.retryCount = 0;
+                return;
+            }
+            
+            state.retryCount++;
+            if (state.retryCount < CONFIG.MAX_RETRIES) {
+                setTimeout(attempt, CONFIG.RETRY_DELAY);
+            } else {
+                utils.log('Max retries reached, giving up');
+            }
+        };
+        attempt();
+    },
+    
+    setupEventListeners() {
+        // Handle visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && state.enabled) {
+                setTimeout(() => styleManager.forceReapply(), 100);
+            }
+        });
+        
+        // Handle focus events
+        window.addEventListener('focus', () => {
+            if (state.enabled) {
+                setTimeout(() => styleManager.forceReapply(), 100);
+            }
+        });
+        
+        // Cleanup on unload
+        window.addEventListener('beforeunload', () => {
+            observerManager.cleanup();
+        });
+    }
 };
-attempt();
-},
-setupEventListeners() {
-// Handle visibility changes
-document.addEventListener('visibilitychange', () => {
-if (!document.hidden && state.enabled) {
-setTimeout(() => styleManager.forceReapply(), 100);
-}
-});
-// Handle focus events
-window.addEventListener('focus', () => {
-if (state.enabled) {
-setTimeout(() => styleManager.forceReapply(), 100);
-}
-});
-// Cleanup on unload
-window.addEventListener('beforeunload', () => {
-observerManager.cleanup();
-});
-}
-};
+
 // Start the application
 if (document.readyState === 'loading') {
-document.addEventListener('DOMContentLoaded', () => app.init());
+    document.addEventListener('DOMContentLoaded', () => app.init());
 } else {
-app.init();
+    app.init();
 }
 })();
