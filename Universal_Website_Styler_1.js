@@ -18,7 +18,7 @@ const CONFIG = {
     DEBUG_MODE: true,
     RETRY_DELAY: 500,
     MAX_RETRIES: 15,
-    OBSERVER_THROTTLE: 500,
+    OBSERVER_THROTTLE: 1000,
     CACHE_DURATION: 6 * 60 * 60 * 1000,
     CACHE_KEY_PREFIX: 'css_cache_',
     BERRY_INITIAL_DELAY: 4000,
@@ -35,9 +35,9 @@ const SITES = {
         name: 'ChatGPT',
         styleURL: 'https://raw.githubusercontent.com/yfjuu4/ai-chat-styles/main/ChatGpt_style.css',
         styleID: 'chatgpt-enhanced-styles',
-        needsReadyCheck: true,
+        needsReadyCheck: false,
         readySelector: 'main, [class*="conversation"], #__next',
-        aggressiveReapply: true,
+        aggressiveReapply: false,
         enabledByDefault: true  // 🆕 Default state for this site
     },
     'claude.ai': {
