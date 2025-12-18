@@ -1,21 +1,4 @@
-/* Target the entire scrollbar and set its width */
-::-webkit-scrollbar {
-  width: 9px;
-}
-/* Style the scrollbar thumb (the draggable part) */
-::-webkit-scrollbar-thumb {
-  background-color: #00c508; /* Grey color */
-  border-radius: 6px; /* Rounded corners */
-}
-/* Style the scrollbar track (the background) */
-::-webkit-scrollbar-track {
-  background-color: black; /* Light grey */
-  border-left: 2px #f300ff solid;
-}
-/* Style the thumb on hover */
-::-webkit-scrollbar-thumb:hover {
-  background-color: #555; /* Darker grey on hover */
-}
+
 .ds-markdown>:first-child
 {
     Color:#a49502;
@@ -30,10 +13,5 @@ strong {
 .ds-markdown-paragraph:not(strong){
     Color:#a49502;
     font-size: 20px !important;
-}
-
-.ds-markdown code {
-    background-color: #aa0000;
-    Color: #000000;
 }
 
