@@ -1,15 +1,3 @@
-
-.ds-markdown>:first-child
-{
-    Color:#a49502;
-    font-size: 20px;
-}
-
-strong {
-    Color:#bc0000;
-    font-size: 20px;
-}
-
 .ds-markdown-paragraph:not(strong){
     Color:#a49502;
     font-size: 20px !important;
