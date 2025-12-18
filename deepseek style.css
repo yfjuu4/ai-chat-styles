@@ -19,11 +19,6 @@
 ::-webkit-scrollbar-thumb:hover {
   background-color: #555; /* Darker grey on hover */
 }
-[data-ds-dark-theme] ._0fcaa63
-,[data-ds-dark-theme] ._2be88ba
-{
-    
-}
 
 .ds-markdown>:first-child
 {
