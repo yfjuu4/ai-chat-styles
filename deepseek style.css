@@ -8,13 +8,3 @@ strong {
     Color:#bc0000;
     font-size: 20px;
 }
-
-.ds-markdown-paragraph:not(strong){
-    Color:#a49502;
-    font-size: 20px !important;
-}
-
-.ds-markdown code {
-    background-color: #aa0000;
-    Color: #000000;
-}
