@@ -1,4 +1,8 @@
 .ds-markdown>:first-child
 {
-    Color:red;
+    Color:green;
+}
+
+html {
+    background-color: #d42525;
 }
