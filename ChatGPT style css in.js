@@ -67,6 +67,7 @@ button[data-testid="share-chat-button"],
 ,.mb-\[var\(--sidebar-collapsed-section-margin-bottom\)\]
 ,.lg\:hidden
 ,.z-30
+,.mt-2
 {
     display: none !important;
 }
