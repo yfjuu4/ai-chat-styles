@@ -35,7 +35,7 @@ border-left: 2px #f300ff solid;
 ::-webkit-scrollbar-thumb:hover {
 background-color: #555; /* Darker grey on hover */
 }
-    /*========================================================*/
+/*========================================================*/
 .md\:px-Mathjax,
 .pt-5,
 .font-bold,
@@ -70,6 +70,11 @@ button[data-testid="share-chat-button"],
 ,.mt-2
 {
     display: none !important;
+}
+
+#stage-popover-sidebar{
+    max-width:350px;
+    width:350px;
 }
 /*-----------------------------------------*/
 .flex > div > .text-sm {
