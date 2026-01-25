@@ -76,7 +76,7 @@ const SITES = {
     'dictionary.cambridge.org': {
         name: 'DeepSeek',
         styleURL: 'https://raw.githubusercontent.com/yfjuu4/websites_styles/refs/heads/main/cambridge dict.css',
-        styleID: 'deepseek-enhanced-styles',
+        styleID: 'cambridge-enhanced-styles',
         needsReadyCheck: false,
         readySelector: 'body',
         aggressiveReapply: false,
