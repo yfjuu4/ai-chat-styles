@@ -68,6 +68,8 @@ button[data-testid="share-chat-button"],
 ,.lg\:hidden
 ,.z-30
 ,.mt-2
+,.group\/sidebar-expando-section:nth-child(6)
+,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\]
 {
     display: none !important;
 }
