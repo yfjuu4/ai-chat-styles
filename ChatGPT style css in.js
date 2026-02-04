@@ -211,6 +211,7 @@ tr:nth-child(1) > .text-left {
 }
 .markdown p {
     margin-bottom: 0rem;
+    Font-size: 20px;
 }
 .prose :where(ul):not(:where([class~=not-prose] *)) {
     margin-bottom: 0.25em;
