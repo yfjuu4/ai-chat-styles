@@ -79,6 +79,12 @@ button[data-testid="share-chat-button"],
     width:300px;
 }
 /*-----------------------------------------*/
+.font-semibold {
+    Color: #cfc5ff !important;
+}
+.dark\:bg-token-bg-elevated-secondary\/80:where(.dark,.dark *):not(:where(.dark .light,.dark .light *)) {
+    justify-content: center;
+}
 .block > .h-full{
     background-color: black;
     border: 2px #00b91e solid;
