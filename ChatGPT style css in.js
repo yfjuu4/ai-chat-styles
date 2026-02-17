@@ -803,9 +803,6 @@ p > em {
     margin-top: 0;
     margin-bottom: 0;
 }
-.group-hover\/turn-messages\:opacity-100 {
-    opacity: 1;
-}
 /*========================================================*/
 `;
 // State management
