@@ -784,6 +784,28 @@ p > em {
     background-color: #d8cbcb;
     border: 2px #00e125 solid;
 }
+.block > .h-full{
+    background-color: black;
+    border: 2px #00b91e solid;
+}
+.font-semibold {
+    Color: #cfc5ff !important;
+}
+.dark\:bg-token-bg-elevated-secondary\/80:where(.dark,.dark *):not(:where(.dark .light,.dark .light *)) {
+    justify-content: center;
+}
+.markdown-new-styling :is(.markdown h1) {
+    margin-bottom: 0;
+    font-size: 21px;
+    Color:#e10000;
+}
+.markdown-new-styling :is(.markdown h2) {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.group-hover\/turn-messages\:opacity-100 {
+    opacity: 1;
+}
 /*========================================================*/
 `;
 // State management
