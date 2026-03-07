@@ -16,7 +16,7 @@ const CONFIG = {
     MAX_RETRIES: 50,
     OBSERVER_THROTTLE: 250
 };
-const USER_CSS = String.raw`
+    const USER_CSS = String.raw`
 /* Target the entire scrollbar and set its width */
 ::-webkit-scrollbar {
 width: 9px;
@@ -61,8 +61,7 @@ span:nth-child(26),
 .group\/scrollport > .mt-5,
 a[role="menuitem"],
 .gap-6:nth-child(1),
-button[data-testid="share-chat-button"],
-.pt-\(--sidebar-section-first-margin-top\):nth-child(3)
+button[data-testid="share-chat-button"]
 , .sm\:items-center
 ,.mb-\[var\(--sidebar-collapsed-section-margin-bottom\)\]
 ,.-my-1\.5
@@ -70,9 +69,10 @@ button[data-testid="share-chat-button"],
 ,.trailing text-token-text-tertiary
 ,.flex > .group:nth-child(3)
 ,.mt-2
-/* ,.group\/sidebar-expando-section:nth-child(6) */
 ,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\]
+,.group\/sidebar-expando-section:nth-child(5)
 ,.block > .inline-flex
+,.pt-\(--sidebar-section-first-margin-top\) > .group:nth-child(1)
 {
     display: none !important;
 }
@@ -820,10 +820,10 @@ p > em {
     padding: 0;
 }
 .max-w-xs {
-    max-width: 360px;
+    max-width: 300px;
 }
 .w-\[var\(--sidebar-width\)\] {
-    width: 360px;
+    width: 300px;
 }
 `;
 // State management
