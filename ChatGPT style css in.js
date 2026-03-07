@@ -69,9 +69,11 @@ button[data-testid="share-chat-button"],
 ,.not-group-data-disabled\:text-token-text-tertiary
 ,.trailing text-token-text-tertiary
 ,.flex > .group:nth-child(3)
-,.mt-2
+,.mt-2 
 /* ,.group\/sidebar-expando-section:nth-child(6) */
-,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\] {
+,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\]
+,.block > .inline-flex
+{
     display: none !important;
 }
 /*-----------------------------------------*/
@@ -809,6 +811,13 @@ p > em {
 }
 .group-hover\/turn-messages\:opacity-100 {
     opacity: 1;
+}
+.py-1\.5 {
+    padding-block: 0;
+    border: 1px #01d300 solid;
+}
+.__menu-item[data-size=large]:dir(ltr) {
+    padding: 0;
 }
 `;
 // State management
