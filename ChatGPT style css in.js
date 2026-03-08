@@ -72,7 +72,7 @@ button[data-testid="share-chat-button"]
 ,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\]
 ,.group\/sidebar-expando-section:nth-child(5)
 ,.block > .inline-flex
-,.pt-\(--sidebar-section-first-margin-top\) > .group:nth-child(1)
+,a[data-testid="create-new-chat-button"]
 {
     display: none !important;
 }
