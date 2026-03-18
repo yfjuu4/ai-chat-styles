@@ -8,6 +8,7 @@
 // @match        https://context.reverso.net/*
 // @match        https://chat.deepseek.com/*
 // @match        https://dictionary.cambridge.org/*
+// @match        https://grok.com/*
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // ==/UserScript==
@@ -77,6 +78,15 @@ const SITES = {
         name: 'cambridge',
         styleURL: 'https://raw.githubusercontent.com/yfjuu4/websites_styles/refs/heads/main/cambridge dict.css',
         styleID: 'cambridge-enhanced-styles',
+        needsReadyCheck: false,
+        readySelector: 'body',
+        aggressiveReapply: false,
+        enabledByDefault: true
+    },
+    'grok.com': {
+        name: 'grok',
+        styleURL: 'https://raw.githubusercontent.com/yfjuu4/websites_styles/refs/heads/main/Grok_style.css',
+        styleID: 'grok-enhanced-styles',
         needsReadyCheck: false,
         readySelector: 'body',
         aggressiveReapply: false,
