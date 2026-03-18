@@ -1,0 +1,50 @@
+.prose :where(strong):not(:where([class~=not-prose],[class~=not-prose] *)) {
+    font-weight: 600;
+    Color: #19e100;
+    Font-size: 20px;
+}
+.prose :where(h3):not(:where([class~=not-prose],[class~=not-prose] *)) {
+    margin: 0;
+    font-weight: 600;
+    line-height: 0;
+    Color: #e10000;
+}
+.prose :where(p):not(:where([class~=not-prose],[class~=not-prose] *)) {
+    margin-top: var(--paragraph-margin);
+    margin-bottom: var(--paragraph-margin);
+    color: hsl(40, 100%, 45%);
+    Font-size: 20px;
+}
+#last-reply-container > .flex
+{
+    border: 1px #00bcda solid;
+}
+.\@sm\/mainview\:max-w-\[90\%\] {
+    max-width: 90%;
+    Color: #e10000 !important;
+    border: 1px #ca00ff solid;
+    align-self: center;
+}
+.pt-20 {
+    padding-top: 0;
+}
+.pb-4 {
+    padding-bottom: 0;
+}
+.max-w-\[--content-max-width\] {
+    text-align: center;
+}
+
+.\[\&_a\:not\(\.not-prose\)\]\:underline-offset-2 a:not(.not-prose) {
+    text-decoration-line: unset;
+    Color: #000000;
+    Font-weight: 500;
+    background-color: #bea0a0;
+    padding: 2px 2px 2px 1px;
+    border: 2px #f0f solid;
+}
+.\[\&_a\:not\(\.not-prose\)\]\:underline-offset-2 a:not(.not-prose):hover {
+    background-color: #e30000;
+    border: 2px #00e11e solid;
+    Color: #000000;
+}
