@@ -64,15 +64,20 @@ a[role="menuitem"],
 button[data-testid="share-chat-button"]
 , .sm\:items-center
 ,.mb-\[var\(--sidebar-collapsed-section-margin-bottom\)\]
+,#page-header
 ,.-my-1\.5
 ,.not-group-data-disabled\:text-token-text-tertiary
 ,.trailing text-token-text-tertiary
 ,.flex > .group:nth-child(3)
-,.mt-2
 ,.pb-\[calc\(var\(--sidebar-section-margin-top\)-var\(--sidebar-section-first-margin-top\)\)\]
-,.group\/sidebar-expando-section:nth-child(5)
+,.group\/sidebar-expando-section:nth-child(5),.group\/sidebar-expando-section:nth-child(6)
 ,.block > .inline-flex
 ,a[data-testid="create-new-chat-button"]
+,div.group.sidebar-expando-section.mb-\[var\(--sidebar-expanded-section-margin-bottom\)\]
+/* ,.group\/sidebar-expando-section:nth-child(7) */
+,.m-4
+,.border-token-interactive-border-secondary-default
+,.bg-token-main-surface-primary
 {
     display: none !important;
 }
